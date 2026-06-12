@@ -645,7 +645,7 @@ namespace TIA_LIB
         {
             var hmiSoftware = GetHmiSoftware();
 
-            List<HmiTag> hmiTagsToDelete = new List<HmiTag>();
+            List<HmiTag> hmiTagsToReport = new List<HmiTag>();
 
             foreach (var tag in hmiSoftware.Tags)
             {
@@ -654,17 +654,15 @@ namespace TIA_LIB
 
                 if (hmiTagName != plcTagName && hmiTagName != "" && plcTagName != "")
                 {
-                    hmiTagsToDelete.Add(tag);
+                    hmiTagsToReport.Add(tag);
                 }
             }
 
-            bool tagsDetected = hmiTagsToDelete.Count != 0;
+            bool tagsDetected = hmiTagsToReport.Count != 0;
 
-            foreach (var tag in hmiTagsToDelete)
+            foreach (var tag in hmiTagsToReport)
             {
-                var tagName = tag.Name;
-                tag.Delete();
-                Console.WriteLine("HmiTag has been deleted " + tagName);
+                Console.WriteLine("HmiTag mismatch detected " + tag.Name + " -> " + tag.PlcTag);
             }
             
             return tagsDetected;

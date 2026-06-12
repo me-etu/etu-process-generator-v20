@@ -14,6 +14,37 @@ Use this file to record practical learnings that are too specific or operational
 
 ## 2026-06-12
 
+### Repo-Local TIA_LIB Layout
+
+Current source of truth:
+
+- `TIAOpenness\TIA_Lib\TIA_LIB`
+
+Findings:
+
+- The old nested copy at `UnifiedSprechstunde15\TIA_LIB` was removed.
+- `TIAOpenness\TIAOpenness_ETU` appears unused; no current solution/project references point to it.
+- The app should reference `TIA_LIB.csproj`, not a copied `TIA_LIB.dll` in `bin\x64\Debug`.
+- NuGet packages are restored from `packages.config`; the `packages/` folder stays ignored.
+
+Build quirk:
+
+- Siemens Openness DLLs are referenced through `$(ProgramFiles)\Siemens\Automation\Portal V20\PublicAPI\V20`.
+- Running the generator app is side-effecting; use compile checks for repository cleanup validation.
+
+### HMI Tag Cleanup Safety
+
+Problem:
+
+- `Portal.CheckTags()` deleted a manually multiplexed HMI tag named `dbParameters_UnitPara`.
+- The tag was unrelated to generated units; it only failed the old HMI tag name vs PLC tag path equality heuristic.
+
+Current fix:
+
+- `TIAOpenness\TIA_Lib\TIA_LIB\SiemensPortal.cs`
+- `CheckTags()` now reports HMI/PLC tag mismatches and returns whether any were found.
+- Actual HMI tag deletion remains limited to `DeleteRenamedTags()`, which removes names ending `_Renamed`.
+
 ### Plant FB Preservation
 
 Problem:
@@ -29,7 +60,7 @@ Findings:
 
 Current fix:
 
-- `C:\TIAOpenness\TIA_Lib\TIA_LIB\Xml\XmlPlant.cs`
+- `TIAOpenness\TIA_Lib\TIA_LIB\Xml\XmlPlant.cs`
 - `XmlPlant` constructor no longer passes `overwrite = true`.
 - `GetUnit` now checks both network title and existing calls via `FindUnitCallNetwork`.
 - Existing calls such as `fbBV160-B110` / `BV160-B110` are preserved.
@@ -37,7 +68,7 @@ Current fix:
 
 Important:
 
-- After editing external `TIA_LIB`, rebuild `TIA_LIB` and copy `TIA_LIB.dll` plus `TIA_LIB.pdb` into `UnifiedSprechstunde15\bin\x64\Debug`.
+- After editing repo-local `TIA_LIB`, rebuild the solution or app project so MSBuild copies the project-reference output.
 
 ### Unified Panel Detection
 
@@ -50,19 +81,22 @@ Problem:
 
 Current fix:
 
-- `C:\TIAOpenness\TIA_Lib\TIA_LIB\SiemensPortal.cs`
+- `TIAOpenness\TIA_Lib\TIA_LIB\SiemensPortal.cs`
 - Device detection recursively scans each device's `DeviceItems` for `SoftwareContainer`.
 - It finds `HmiSoftware` and `PlcSoftware` by capability instead of type identifier.
 - It throws explicit errors when HMI software, PLC software, or HMI connection is missing.
 
 ### Build And Reference Quirks
 
-- The app project references `UnifiedSprechstunde15\bin\x64\Debug\TIA_LIB.dll` directly.
-- The `.sln` may still contain a stale external project path for `TIA_LIB.csproj`.
-- Building `UnifiedSprechstunde15\UnifiedSprechstunde15.csproj` directly is more reliable than building the full solution.
+- The app project now references `TIAOpenness\TIA_Lib\TIA_LIB\TIA_LIB.csproj`.
+- Build `Debug|x64` to match Siemens Openness and `TIA_LIB` AMD64 usage.
 - Known build command:
 
 ```powershell
+& 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
+  'UnifiedSprechstunde15.sln' `
+  /t:Restore /p:RestorePackagesConfig=true
+
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
   'UnifiedSprechstunde15\UnifiedSprechstunde15.csproj' `
   /p:Configuration=Debug /p:Platform=x64 /m
@@ -85,4 +119,3 @@ Current fix:
 - `Upload()` imports generated blocks.
 - `GenerateSiVarc()` and `UserInterface()` affect Unified HMI objects.
 - Use compile-only checks when the goal is validation without touching TIA.
-

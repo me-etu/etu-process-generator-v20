@@ -80,11 +80,11 @@
     <Reference Include="ReachFramework" />
     <Reference Include="Siemens.Engineering, Version=18.0.0.0, Culture=neutral, PublicKeyToken=d29ec89bac048f84, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\Program Files\Siemens\Automation\Portal V20\PublicAPI\V20\Siemens.Engineering.dll</HintPath>
+      <HintPath>$(ProgramFiles)\Siemens\Automation\Portal V20\PublicAPI\V20\Siemens.Engineering.dll</HintPath>
     </Reference>
     <Reference Include="Siemens.Engineering.Hmi, Version=18.0.0.0, Culture=neutral, PublicKeyToken=d29ec89bac048f84, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\Program Files\Siemens\Automation\Portal V20\PublicAPI\V20\Siemens.Engineering.Hmi.dll</HintPath>
+      <HintPath>$(ProgramFiles)\Siemens\Automation\Portal V20\PublicAPI\V20\Siemens.Engineering.Hmi.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -100,10 +100,6 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="System.Xml" />
-    <Reference Include="TIA_LIB, Version=1.0.0.0, Culture=neutral, processorArchitecture=AMD64">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>\\vmware-host\Shared Folders\share\Random\H20\Generator\UnifiedSprechstunde15\UnifiedSprechstunde15\bin\x64\Debug\TIA_LIB.dll</HintPath>
-    </Reference>
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
@@ -113,6 +109,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TIAOpenness\TIA_Lib\TIA_LIB\TIA_LIB.csproj">
+      <Project>{A254B1D7-4C96-4074-878E-6DF956CC2D2D}</Project>
+      <Name>TIA_LIB</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.8">

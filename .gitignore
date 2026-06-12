@@ -27,3 +27,5 @@ Plant.xml
 # NuGet packages restored locally
 packages/
 
+# Unused copied TIAOpenness sample/stub project
+TIAOpenness/TIAOpenness_ETU/

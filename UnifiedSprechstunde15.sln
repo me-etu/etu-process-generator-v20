@@ -5,6 +5,8 @@ VisualStudioVersion = 18.7.11903.348 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnifiedSprechstunde15", "UnifiedSprechstunde15\UnifiedSprechstunde15.csproj", "{D8374B32-5920-43BC-9D9A-82C45E68545C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TIA_LIB", "TIAOpenness\TIA_Lib\TIA_LIB\TIA_LIB.csproj", "{A254B1D7-4C96-4074-878E-6DF956CC2D2D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,14 @@ Global
 		{D8374B32-5920-43BC-9D9A-82C45E68545C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D8374B32-5920-43BC-9D9A-82C45E68545C}.Release|x64.ActiveCfg = Release|x64
 		{D8374B32-5920-43BC-9D9A-82C45E68545C}.Release|x64.Build.0 = Release|x64
+		{A254B1D7-4C96-4074-878E-6DF956CC2D2D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A254B1D7-4C96-4074-878E-6DF956CC2D2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A254B1D7-4C96-4074-878E-6DF956CC2D2D}.Debug|x64.ActiveCfg = Debug|x64
+		{A254B1D7-4C96-4074-878E-6DF956CC2D2D}.Debug|x64.Build.0 = Debug|x64
+		{A254B1D7-4C96-4074-878E-6DF956CC2D2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A254B1D7-4C96-4074-878E-6DF956CC2D2D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A254B1D7-4C96-4074-878E-6DF956CC2D2D}.Release|x64.ActiveCfg = Release|x64
+		{A254B1D7-4C96-4074-878E-6DF956CC2D2D}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

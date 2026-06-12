@@ -20,19 +20,19 @@ The current active project definition is intentionally small and generates unit 
 
 ## Important Runtime Dependency
 
-Most generator behavior lives outside this workspace in:
+Most generator behavior lives in the repo-local `TIA_LIB` source tree:
+
+```text
+TIAOpenness\TIA_Lib\TIA_LIB
+```
+
+The app references this project directly through the solution/project files. The old machine-level copy can still exist for comparison, but normal builds should not depend on:
 
 ```text
 C:\TIAOpenness\TIA_Lib\TIA_LIB
 ```
 
-The app currently references the built DLL copied into:
-
-```text
-UnifiedSprechstunde15\bin\x64\Debug\TIA_LIB.dll
-```
-
-After changing `TIA_LIB`, rebuild it and copy the rebuilt `TIA_LIB.dll` and `TIA_LIB.pdb` into the app output folder before running from Visual Studio.
+Do not hand-link `TIA_LIB.dll` from `UnifiedSprechstunde15\bin\x64\Debug`; Visual Studio/MSBuild should copy the referenced project output automatically.
 
 ## Current Generation Flow
 
@@ -67,13 +67,22 @@ This connects to an open or newly started TIA Portal instance and modifies the o
 
 Preferred workflow is Visual Studio with `Debug|x64`.
 
-The solution file may contain an outdated external `TIA_LIB.csproj` path. The app project itself can build against the local copied `TIA_LIB.dll`.
+Restore NuGet packages first, then build the solution or the app project. NuGet packages are intentionally ignored by Git and restored from `packages.config`.
 
-When validating with MSBuild, build the app project directly:
+When validating with MSBuild:
 
 ```powershell
+& 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
+  'UnifiedSprechstunde15.sln' `
+  /t:Restore /p:RestorePackagesConfig=true
+
+& 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
+  'TIAOpenness\TIA_Lib\TIA_LIB\TIA_LIB.csproj' `
+  /p:Configuration=Debug /p:Platform=x64 /m
+
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
   'UnifiedSprechstunde15\UnifiedSprechstunde15.csproj' `
   /p:Configuration=Debug /p:Platform=x64 /m
 ```
 
+Running the app is not a harmless smoke test: it connects to TIA Portal and can mutate the open project.

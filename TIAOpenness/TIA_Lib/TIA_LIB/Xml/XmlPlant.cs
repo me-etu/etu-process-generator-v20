@@ -6,7 +6,7 @@ namespace TIA_LIB.Xml
 {
     public class XmlPlant: XmlBlock
     {
-        public XmlPlant(): base(null, "Plant", "Plant.xml", "Xml/EmptyPlant.xml", "", false, "", true)
+        public XmlPlant(): base(null, "Plant", "Plant.xml", "Xml/EmptyPlant.xml", "", false)
         {
             Current = this;
 
@@ -23,7 +23,7 @@ namespace TIA_LIB.Xml
                 unit = new XmlUnit("fb" + name);
                 Units.Add("fb" + name, unit);
 
-                var network = FindNetwork(name);
+                var network = FindNetwork(name) ?? FindUnitCallNetwork(name);
 
                 if(network == null)
                 {
@@ -33,6 +33,24 @@ namespace TIA_LIB.Xml
                 }      
             }
             return unit;
+        }
+
+        private XmlNetwork FindUnitCallNetwork(string unitName)
+        {
+            string blockName = "fb" + unitName;
+
+            foreach (var network in Networks.Values)
+            {
+                foreach (var call in network.Calls.Values)
+                {
+                    if (call.BlockName == blockName && call.InstName == unitName)
+                    {
+                        return network;
+                    }
+                }
+            }
+
+            return null;
         }
 
 

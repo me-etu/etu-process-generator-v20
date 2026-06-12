@@ -1,0 +1,29 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+# Generated/import-export artifacts
+*_IMPORT_FAILED.xml
+Plant.xml
+*.log
+
+# TIA Portal / VCI local state
+.vci/
+
+# Local editor settings
+.vscode/
+
+# NuGet packages restored locally
+packages/
+

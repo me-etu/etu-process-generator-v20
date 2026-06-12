@@ -1,0 +1,186 @@
+﻿using Siemens.Engineering.SW.Blocks;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Xml.Linq;
+
+namespace TIA_LIB.Xml
+{
+    public class XmlBlock
+    {
+        public XmlBlock(PlcBlockUserGroup parent_user_group, string name, string file_name, string template, string instName, bool instGlobal = false, string user_gorup_name = "", bool overwrite = false)
+        {          
+            _Name = name;
+
+            string  inst = "";
+            if (instName.StartsWith("fb")) inst = instName.Substring(2);
+            if (!instName.StartsWith("fb")) inst = instName;
+
+            if(instGlobal) Instances.Add(instGlobal + "|" + inst + "|" + name);
+
+            string folder = System.IO.Directory.GetCurrentDirectory() + "\\";
+            FileName = folder + file_name;
+
+            Networks = new Dictionary<string, XmlNetwork>();
+
+            if (Blocks == null)
+            {
+                Blocks = new List<XmlBlock>();
+            }
+            Blocks.Add(this);
+
+            if(parent_user_group != null)
+            {
+                if (user_gorup_name == "") UserGroup = SiemensPortal.Current.CreatePlcFolder(parent_user_group, Name);
+                if (user_gorup_name != "") UserGroup = SiemensPortal.Current.CreatePlcFolder(parent_user_group, user_gorup_name);
+            }
+            else
+            {
+                if(user_gorup_name == "") UserGroup = SiemensPortal.Current.CreatePlcFolder(Name);
+                if(user_gorup_name != "") UserGroup = SiemensPortal.Current.CreatePlcFolder(user_gorup_name);
+            }
+
+            Xml = SiemensPortal.Current.ExportPlcBlock(UserGroup, _Name, FileName);
+
+            if (Xml == null || overwrite)
+            {
+                Xml = XElement.Load(template);
+                Name = name;
+            }
+
+            _ObjectList = Xml.Descendants("SW.Blocks.FB").Descendants("ObjectList").FirstOrDefault();
+
+            foreach (var network in _ObjectList.Descendants("SW.Blocks.CompileUnit"))
+            {
+                new XmlNetwork(this, network);
+            }
+
+
+            LocalInstance = new Dictionary<string, XmlLocalInstance>();
+
+            _Memberlist = Xml.Descendants(_Namespace + "Section").Where(el => el.Attribute("Name").Value == "Static").FirstOrDefault();
+
+            if (_Memberlist != null)
+            {
+                foreach (var member in _Memberlist.Elements())
+                {
+                    new XmlLocalInstance(this, member);
+                }
+            }
+
+        }
+
+        public XmlLocalInstance GetLocalInstance(string name, string datatype)
+        {
+            XmlLocalInstance member;
+            
+            if(!LocalInstance.TryGetValue(name, out member))
+            {
+                member = new XmlLocalInstance(this, name, datatype);
+            }
+
+            return member;
+        }
+
+        public XmlNetwork FindNetwork(string name)
+        {
+            XmlNetwork network;
+
+            Networks.TryGetValue(name, out network);
+
+            return network;
+        }
+
+        public XmlNetwork GetNetwork(string name, string description = "", bool empty = false)
+        {
+            XmlNetwork network;
+
+            if(!Networks.TryGetValue(name, out network))
+            {
+                network = new XmlNetwork(this, name, description, empty);
+
+
+                var target = _ObjectList.Descendants("SW.Blocks.CompileUnit").LastOrDefault();
+                if (target == null) 
+                    target = _ObjectList.Descendants("MultilingualText").FirstOrDefault();
+
+                target.AddAfterSelf(network.Xml);
+            }
+            return network;
+        }
+        public static List<XmlBlock> Blocks;
+        public bool HasChanged = false;
+        public PlcBlockUserGroup UserGroup;
+        public string Name
+        {
+            get
+            {
+                if(_Name.StartsWith("fb"))
+                {
+                    return _Name.Substring(2);
+                }
+                else
+                {
+                    return _Name;
+                }
+            }
+            set
+            {
+                if(Xml.Descendants("SW.Blocks.FB").Descendants("AttributeList").Descendants("Name").FirstOrDefault().Value != _Name)
+                {
+                    Xml.Descendants("SW.Blocks.FB").Descendants("AttributeList").Descendants("Name").FirstOrDefault().Value = _Name;
+                    HasChanged = true;
+                }
+            }
+        }
+        private string _Name;
+        public void Upload()
+        {
+            if (!HasChanged) return;
+
+            int count = 1;
+
+            foreach (XElement el in _ObjectList.Descendants().Where(el => el.Attribute("ID") != null))
+            {
+                el.SetAttributeValue("ID", count.ToString("X"));
+                count++;
+            }
+
+            Xml.Save(FileName);
+
+            SiemensPortal.Current.ImportPlcBlock(UserGroup, _Name, FileName);
+
+           
+
+            foreach (var el in Instances)
+            {
+                var isGlobal = el.Split('|')[0].ToLower();
+                var instName = el.Split('|')[1];
+                var blockName = el.Split('|')[2];
+
+                if (isGlobal == "true" && instName != "" && instName != null)
+                {
+                    SiemensPortal.Current.CreateInstanceDB(UserGroup, blockName, instName);
+                }
+            }
+
+            HasChanged = false;
+        }
+        public XElement Xml;
+        private XElement _ObjectList;
+        private XElement _Memberlist;
+        public string FileName;
+        private XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/Interface/v5";
+        public Dictionary<string, XmlNetwork> Networks;
+        public Dictionary<string, XmlLocalInstance> LocalInstance;
+        public bool InstGlobal;
+        public string InstName;
+
+        public string BlocktName;
+        public List<string> Instances = new List<string>();
+
+    }
+}

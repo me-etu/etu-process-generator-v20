@@ -1,0 +1,88 @@
+﻿<SW.Blocks.CompileUnit ID="8" CompositionName="CompileUnits">
+  <AttributeList>
+	  <NetworkSource />
+	  <ProgrammingLanguage>FBD</ProgrammingLanguage>
+  </AttributeList>
+  <ObjectList>
+    <MultilingualText ID="9" CompositionName="Comment">
+      <ObjectList>
+        <MultilingualTextItem ID="A" CompositionName="Items">
+          <AttributeList>
+            <Culture>en-US</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+        <MultilingualTextItem ID="B" CompositionName="Items">
+          <AttributeList>
+            <Culture>de-DE</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+        <MultilingualTextItem ID="C" CompositionName="Items">
+          <AttributeList>
+            <Culture>es-ES</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+        <MultilingualTextItem ID="D" CompositionName="Items">
+          <AttributeList>
+            <Culture>it-IT</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+        <MultilingualTextItem ID="E" CompositionName="Items">
+          <AttributeList>
+            <Culture>fr-FR</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+        <MultilingualTextItem ID="F" CompositionName="Items">
+          <AttributeList>
+            <Culture>fr-BE</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+      </ObjectList>
+    </MultilingualText>
+    <MultilingualText ID="10" CompositionName="Title">
+      <ObjectList>
+        <MultilingualTextItem ID="11" CompositionName="Items">
+          <AttributeList>
+            <Culture>en-US</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+        <MultilingualTextItem ID="12" CompositionName="Items">
+          <AttributeList>
+            <Culture>de-DE</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+        <MultilingualTextItem ID="13" CompositionName="Items">
+          <AttributeList>
+            <Culture>es-ES</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+        <MultilingualTextItem ID="14" CompositionName="Items">
+          <AttributeList>
+            <Culture>it-IT</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+        <MultilingualTextItem ID="15" CompositionName="Items">
+          <AttributeList>
+            <Culture>fr-FR</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+        <MultilingualTextItem ID="16" CompositionName="Items">
+          <AttributeList>
+            <Culture>fr-BE</Culture>
+            <Text />
+          </AttributeList>
+        </MultilingualTextItem>
+      </ObjectList>
+    </MultilingualText>
+  </ObjectList>
+</SW.Blocks.CompileUnit>

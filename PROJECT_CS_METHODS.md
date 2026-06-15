@@ -1,12 +1,12 @@
 # Project.cs Method Reference
 
-This file documents the project-facing DSL used by [Project.cs](D:\Software\UnifiedSprechstunde15\UnifiedSprechstunde15\Project.cs) so another Codex project can understand and extend it without reverse-engineering the whole solution.
+This file documents the project-facing DSL used by [Project.cs](etu-process-generator-TiAv20/Project.cs) so another Codex project can understand and extend it without reverse-engineering the whole solution.
 
 ## Purpose
 
 `Project.cs` is not ordinary business logic. It is a declarative build script for a TIA Portal automation project.
 
-- The class `Project : PlcProject` inherits a set of helper methods from [PlcProject.cs](D:\Software\UnifiedSprechstunde15\TIAOpenness\TIA_Lib\TIA_LIB\PlcProject.cs).
+- The class `Project : PlcProject` inherits a set of helper methods from [PlcProject.cs](TIAOpenness/TIA_Lib/TIA_LIB/PlcProject.cs).
 - Those helpers create XML-backed PLC/HMI objects, upload them to TIA Portal, generate HMI tags, run SiVArc, and then adjust Unified faceplate/UI properties.
 - Most of the work in `Project.cs` consists of calling methods like `AddDigital(...)`, `AddAnalog(...)`, `AddValve(...)`, `AddPH(...)`, `AddTp(...)`, and `AddRp(...)`.
 
@@ -24,7 +24,7 @@ Another Codex should treat `Project.cs` as a domain-specific language with this 
 
 ## Base Class And Runtime
 
-The inherited base class is [PlcProject.cs](D:\Software\UnifiedSprechstunde15\TIAOpenness\TIA_Lib\TIA_LIB\PlcProject.cs).
+The inherited base class is [PlcProject.cs](TIAOpenness/TIA_Lib/TIA_LIB/PlcProject.cs).
 
 Important constructor behavior:
 
@@ -108,7 +108,7 @@ Interpretation of parameter groups:
 - `p0X_unit`: engineering unit
 - `p0X_txt_list`: text-list name when using enumerated/list style parameters
 
-Examples from [Project.cs](D:\Software\UnifiedSprechstunde15\UnifiedSprechstunde15\Project.cs):
+Examples from [Project.cs](etu-process-generator-TiAv20/Project.cs):
 
 ```csharp
 //AddPH("BV160", "OP1_Agitate", "PH_Agitate");
@@ -447,7 +447,7 @@ These methods are project-relevant even if they are not pure DSL declarations.
 
 `CreateTags`
 
-Defined in [PlcProject.cs](D:\Software\UnifiedSprechstunde15\TIAOpenness\TIA_Lib\TIA_LIB\PlcProject.cs).
+Defined in [PlcProject.cs](TIAOpenness/TIA_Lib/TIA_LIB/PlcProject.cs).
 
 Purpose:
 
@@ -512,7 +512,7 @@ Direct portal-side helper calls used by the project flow:
 - `Portal.DeleteRenamedTags()`
 - `Portal.Portal.Dispose()`
 
-From [SiemensPortal.cs](D:\Software\UnifiedSprechstunde15\TIAOpenness\TIA_Lib\TIA_LIB\SiemensPortal.cs):
+From [SiemensPortal.cs](TIAOpenness/TIA_Lib/TIA_LIB/SiemensPortal.cs):
 
 - `CheckTags()` removes mismatched HMI tags and returns whether any were found
 - `DeleteRenamedTags()` removes HMI tags whose names end with `_Renamed`
@@ -521,7 +521,7 @@ From [SiemensPortal.cs](D:\Software\UnifiedSprechstunde15\TIAOpenness\TIA_Lib\TI
 
 ## Actual Execution Flow In Project.cs
 
-The current [Project.cs](D:\Software\UnifiedSprechstunde15\UnifiedSprechstunde15\Project.cs) ends with this flow:
+The current [Project.cs](etu-process-generator-TiAv20/Project.cs) ends with this flow:
 
 ```csharp
 CreateTags();
@@ -556,7 +556,7 @@ Interpretation:
 
 ## Methods Actively Used In The Current Project
 
-These are the only non-commented DSL calls currently active near the top of [Project.cs](D:\Software\UnifiedSprechstunde15\UnifiedSprechstunde15\Project.cs):
+These are the only non-commented DSL calls currently active near the top of [Project.cs](etu-process-generator-TiAv20/Project.cs):
 
 - `AddDigital(...)`
 - `AddAnalog(...)`
@@ -603,7 +603,7 @@ These names feed PLC tag names, HMI tag names, block names, and faceplate genera
 
 ### 3. Monitoring flags are usually predeclared once
 
-At the top of [Project.cs](D:\Software\UnifiedSprechstunde15\UnifiedSprechstunde15\Project.cs), the project defines:
+At the top of [Project.cs](etu-process-generator-TiAv20/Project.cs), the project defines:
 
 ```csharp
 bool mon_opn = true;
@@ -687,9 +687,9 @@ AddPH("B110B", "OP1_Test", "PH_Test", 1, false, 0, 100, 1, "%");
 
 ## Key Files
 
-- [Project.cs](D:\Software\UnifiedSprechstunde15\UnifiedSprechstunde15\Project.cs)
-- [PlcProject.cs](D:\Software\UnifiedSprechstunde15\TIAOpenness\TIA_Lib\TIA_LIB\PlcProject.cs)
-- [SiemensPortal.cs](D:\Software\UnifiedSprechstunde15\TIAOpenness\TIA_Lib\TIA_LIB\SiemensPortal.cs)
+- [Project.cs](etu-process-generator-TiAv20/Project.cs)
+- [PlcProject.cs](TIAOpenness/TIA_Lib/TIA_LIB/PlcProject.cs)
+- [SiemensPortal.cs](TIAOpenness/TIA_Lib/TIA_LIB/SiemensPortal.cs)
 
 ## Short Summary
 

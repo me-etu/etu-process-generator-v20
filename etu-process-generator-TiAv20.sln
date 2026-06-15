@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.7.11903.348 stable
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnifiedSprechstunde15", "UnifiedSprechstunde15\UnifiedSprechstunde15.csproj", "{D8374B32-5920-43BC-9D9A-82C45E68545C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "etu-process-generator-TiAv20", "etu-process-generator-TiAv20\etu-process-generator-TiAv20.csproj", "{D8374B32-5920-43BC-9D9A-82C45E68545C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TIA_LIB", "TIAOpenness\TIA_Lib\TIA_LIB\TIA_LIB.csproj", "{A254B1D7-4C96-4074-878E-6DF956CC2D2D}"
 EndProject

@@ -1,5 +1,9 @@
 # Chat Knowledge Transfer
 
+Current application name: `etu-process-generator-TiAv20`.
+
+Historical notes below may still mention `UnifiedSprechstunde15` when referring to old folders, stack traces, or earlier project names. For current repository work, use `etu-process-generator-TiAv20\etu-process-generator-TiAv20.csproj` and `etu-process-generator-TiAv20.sln`.
+
 This file summarizes the practical knowledge gathered during the debugging and handoff work for this TIA Portal generator project. It is intended for another Codex session or developer who needs to understand what was discovered without rereading the whole chat.
 
 ## Project Purpose

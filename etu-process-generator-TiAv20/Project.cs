@@ -15,7 +15,7 @@ using System.Drawing;
 using System.Globalization;
 using System.Threading;
 
-namespace UnifiedSprechstunde15
+namespace EtuProcessGeneratorTiaV20
 {
     public class Project : PlcProject
     {

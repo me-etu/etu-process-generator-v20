@@ -2,6 +2,18 @@
 
 All notable project and generator changes should be recorded here.
 
+## 2026-06-15
+
+### Added
+
+- Added `GENERATOR_ISSUES.md` to track generator behavior issues before implementation.
+
+### Changed
+
+- Renamed the app project from `UnifiedSprechstunde15` to `etu-process-generator-TiAv20`.
+- Updated the app namespace to `EtuProcessGeneratorTiaV20`.
+- Renamed the solution and app project files to `etu-process-generator-TiAv20.sln` and `etu-process-generator-TiAv20\etu-process-generator-TiAv20.csproj`.
+
 ## 2026-06-12
 
 ### Added

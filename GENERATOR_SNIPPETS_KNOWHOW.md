@@ -20,6 +20,19 @@ The snippets should describe the plant model through the existing project DSL:
 
 Before creating or changing snippets, check `PROJECT_CS_METHODS.md` for the current method signatures and expected argument meaning.
 
+## Implementation-Backed Argument Notes
+
+The `Add...` methods are thin wrappers over repo-local `TIA_LIB` classes. Use these notes when choosing snippet arguments:
+
+- `unit_name` always selects or creates the unit; `name` is the device/instrument tag inside that unit.
+- Device object names become `UnitName_TagName`, while PLC tags commonly use prefixes such as `IN_`, `CTRL_`, `FB_OPN_`, `FB_CLS_`, and `FB_ON_`.
+- `iconType` is written into the generated FB call as `TYP_ICON`; preserve known values unless a source explicitly identifies the visual/device variant.
+- `interlockCount` and `interlockSafeCount` create `fbIntlck7` calls and wire them to `LOCK` and `S_LOCK`; do not invent counts from vague comments.
+- `instanceCount` on analog/digital signals creates extra monitor instances and aggregates their alarm/warning outputs; leave it `0` unless multiple real monitor instances are required.
+- `qualityBit` changes generated monitor wiring for digitals and valves, but current tag creation still tends to create `_QB` tags by default because the helper tag records have their own defaults.
+- `mon_const = false` with a valid `tp_number` links monitoring time to `TP<number>|OUT`; `mon_const = true` with `mon_t` writes a literal monitoring time.
+- `type = true` on phase, TP, or RP parameters means integer/text-list style behavior; keep it paired with a real text-list name.
+
 ## Source Priority
 
 Use the source document that owns the data type:
@@ -79,11 +92,24 @@ Digital call defaults used in this project:
 AddDigital("UNIT", "TAG", iconType, 0, 0, true, neg);
 ```
 
+Argument reminders:
+
+- `qualityBit = true` wires the monitor external-error input to `IN_TAG_QB`; use it when the source signal has usable signal-quality information.
+- `neg` is the inversion flag for `IN_TAG`; derive it from NC/NO/NAMUR behavior when the source is clear, otherwise mark for review.
+- `colorType` is passed through the public signature but is not currently used by the `Digital` implementation; keep the project default `0`.
+- `instanceCount` should remain `0` for ordinary one-signal sensors.
+
 Analog call defaults used in this project:
 
 ```csharp
 AddAnalog("UNIT", "TAG", 2, 0, "unit", decimals, min, max);
 ```
+
+Argument reminders:
+
+- `unity`, `decimals`, `min`, and `max` are written directly into `UNIT`, `NUM_POINTS`, `LO_LIM`, and `HI_LIM`.
+- Analog input tags are generated as `IN_TAG` integer marker words, so physical scaling assumptions should be visible in comments when the source range is not obvious.
+- Use ASCII-safe engineering units in snippets, for example `deg C`, `m3/h`, `Nm3/h`, and `uS/cm`.
 
 ## Valve Snippets
 
@@ -106,11 +132,24 @@ Discrete valve pattern used in this project:
 AddValve("UNIT", "TAG", 2, 0, 0, mon_opn, mon_cls, false, true, true, 1);
 ```
 
+Argument reminders:
+
+- `mon_opn` wires `FB_OPN_TAG`; `mon_cls` wires `FB_CLS_TAG`; infer them only from matching open/closed feedback evidence.
+- `qualityBit = true` combines feedback and feedback quality bits before wiring the valve monitor; use `false` only when quality-bit handling is intentionally absent.
+- `neg` applies to feedback inputs, not the command output.
+- `tp_number` is only used when `mon_const = false`; the common pattern above links monitoring time to `TP1|OUT`.
+- If `mon_const = true`, pass `mon_t` deliberately and comment the source of the fixed time.
+
 Control valve pattern used in this project:
 
 ```csharp
 AddValveControl("UNIT", "TAG", 2, 0, 0, "%", 1);
 ```
+
+Argument reminders:
+
+- Control valves write `UNIT`, `NUM_POINTS`, and output `QSETPOINT_INT` to generated `CTRL_TAG`.
+- Use `AddValveControl(...)` only when the actuator has an analog/proportional setpoint, not merely open/closed feedback.
 
 ## Motor Snippets
 
@@ -129,6 +168,13 @@ Current project pattern for the agitator:
 AddMotorControl("HYD008", "A001", 6, 0, 0, "rpm", 1, mon_on, false, 2);
 ```
 
+Argument reminders:
+
+- `AddMotor(...)` registers `FB_ON_TAG` and `CTRL_TAG` for PLC tag creation.
+- `AddMotorControl(...)` writes controlled-motor config, unit, decimals, and monitoring parameters, but current tag registration is not as explicit as `AddMotor(...)`; keep related speed/control source evidence in comments.
+- `mon_on` enables running feedback monitoring.
+- Monitoring-time arguments follow the same rule as valves: TP-linked when `mon_const = false`, literal when `mon_const = true`.
+
 ## Phase Snippets
 
 Use `AddPH(...)`.
@@ -142,6 +188,13 @@ Preparation rules:
 - Put Non-Technical parameters in comments directly above the call.
 - Map phase parameters to recipe parameter ranges where possible.
 - Leave a comment when the phase text says `None`, the section is malformed, or a setpoint has `TBD` limits.
+
+Argument reminders:
+
+- `countP` controls how many `P01...P05` parameter groups are active and wired as `SP01...SP05`.
+- Each parameter group is `type, min, max, decimals, unit, textList` in the public `AddPH(...)` call.
+- For `type = false`, HMI range/GMP setup targets the real setpoint tag.
+- For `type = true`, HMI range/GMP setup targets the `_SP_INT` tag and the text list name should be explicit.
 
 ## TP And RP Snippets
 
@@ -161,11 +214,23 @@ TP pattern:
 AddTp(number, def_value, sp_min, sp_max, "unit", isSafety, numbDecPoints);
 ```
 
+Argument reminders:
+
+- `number` becomes `TP<number>`; omit the `TP` prefix in snippets.
+- `def_value`, `sp_min`, and `sp_max` are written to `SP_DEF`, `SP_MIN`, and `SP_MAX`.
+- `isSafety` is written to the generated `fbTP` call, so only mark it true with source evidence.
+
 RP pattern:
 
 ```csharp
 AddRp(number, sp_min, sp_max, "unit", numbDecPoints, type, "txtList_name");
 ```
+
+Argument reminders:
+
+- `number` becomes `RP<number>`; omit the `RP` prefix in snippets.
+- `sp_min` and `sp_max` are written to `MTR_MIN` and `MTR_MAX`.
+- Numeric RPs get HMI range bindings; `type = true` uses the text-list/int-style UI path.
 
 ## Per-Unit Snippets
 
@@ -204,4 +269,3 @@ Before delivering snippets, check:
 - Units are ASCII-safe.
 - The snippet header explains assumptions and omissions.
 - Active `Add...` call count matches expectations.
-

@@ -245,3 +245,245 @@ Marker memory is global, address-sensitive, and easy to collide with manual proj
 For a larger future change, consider replacing generated TEMP marker tags with a generated DB structure for external signal staging, if TIA Portal, SiVArc, and existing PLC patterns allow it.
 
 This is intentionally deferred because it would be a broader architectural change than fixing the current TEMP tag generator.
+
+## G-009: External Project Definition Template
+
+Status: Design
+
+### Symptom
+
+Creating or changing a unit currently requires editing internal C# code in `Project.cs`, recompiling, and treating process engineering data as application source. That makes each new unit a developer workflow instead of a portable generator input workflow.
+
+### Evidence
+
+- `etu-process-generator-TiAv20\Project.cs` contains active hardcoded calls such as `AddAnalog(...)`, `AddDigital(...)`, and `AddValve(...)`.
+- `GENERATOR_SNIPPETS_KNOWHOW.md` already describes engineering-data-to-`Add...` call preparation, which implies the source data can be represented as structured rows.
+- The app already references `GemBox.Spreadsheet`, so reading Excel workbooks is available without adding a new dependency.
+
+### Proposed Direction
+
+Move unit and component definitions out of `Project.cs` into a versioned external project-definition template, preferably `.xlsx` for the first implementation.
+
+`Project.cs` should become orchestration code:
+
+```text
+Project definition workbook
+        -> ProjectDefinition model
+        -> validation and normalization
+        -> AddAnalog/AddDigital/AddValve/etc.
+        -> CreateTags/Upload/SiVArc/UserInterface flow
+```
+
+The generator should interpret the workbook directly. Avoid generating C# from Excel as the primary workflow, because that still leaves users reviewing and compiling generated source code.
+
+### Initial Workbook Proposal
+
+Use a workbook with a clear template version and separate sheets by data shape.
+
+#### Sheet: `Metadata`
+
+| Column | Meaning |
+| --- | --- |
+| Key | Metadata key, for example `TemplateVersion` or `ProjectName` |
+| Value | Metadata value |
+
+Required rows:
+
+- `TemplateVersion`
+- `ProjectName`
+
+#### Sheet: `Units`
+
+| Column | Required | Meaning |
+| --- | --- | --- |
+| Enabled | Yes | `true` or `false` |
+| UnitName | Yes | Unit identifier passed to generator methods |
+| Description | No | Human-readable unit description |
+| Area | No | Optional grouping or plant area |
+| Comment | No | Free review note |
+
+#### Sheet: `Devices`
+
+One row per generated device. Columns should cover the union of parameters required by the current device DSL.
+
+| Column | Required | Applies To | Meaning |
+| --- | --- | --- | --- |
+| Enabled | Yes | all | Include or skip the row |
+| UnitName | Yes | all | Target unit |
+| DeviceType | Yes | all | `Analog`, `Digital`, `Valve`, `ValveControl`, `Motor`, `MotorControl`, or `PidControl` |
+| Name | Yes | all | Device/instrument name |
+| IconType | No | all | Maps to `iconType` |
+| ColorType | No | Digital | Maps to `colorType` |
+| InstanceCount | No | Analog, Digital | Maps to `instanceCount` |
+| QualityBit | No | Digital, Valve | Maps to `qualityBit` |
+| Neg | No | Digital, Valve | Maps to `neg` |
+| InterlockCount | No | Valve, ValveControl, Motor, MotorControl | Normal interlock count |
+| SafeInterlockCount | No | Valve, ValveControl, Motor, MotorControl | Safety interlock count |
+| MonOpn | No | Valve | Open feedback monitoring |
+| MonCls | No | Valve | Closed feedback monitoring |
+| MonOn | No | Motor, MotorControl | Motor running feedback monitoring |
+| MonConst | No | Valve, Motor, MotorControl | Constant monitoring-time mode |
+| TpNumber | No | Valve, Motor, MotorControl | Technical parameter number for monitoring time |
+| MonTime | No | Valve, Motor, MotorControl | Constant monitoring time |
+| Unit | No | Analog, ValveControl, MotorControl, PidControl | Engineering unit text |
+| Decimals | No | Analog, ValveControl, MotorControl, PidControl | Number of decimal places |
+| Min | No | Analog | Low limit |
+| Max | No | Analog | High limit |
+| UnitOut | No | PidControl | PID output engineering unit |
+| DecimalsOut | No | PidControl | PID output decimal places |
+| SourceRef | No | all | Source row/document reference |
+| Comment | No | all | Free review note |
+
+`DeviceType` maps to generator calls:
+
+```text
+Analog       -> AddAnalog(...)
+Digital      -> AddDigital(...)
+Valve        -> AddValve(...)
+ValveControl -> AddValveControl(...)
+Motor        -> AddMotor(...)
+MotorControl -> AddMotorControl(...)
+PidControl   -> AddPidControl(...)
+```
+
+Empty optional cells should use the same defaults as the current C# method signatures unless the validator decides the value is required for that `DeviceType`.
+
+#### Sheet: `TechnicalParameters`
+
+| Column | Required | Meaning |
+| --- | --- | --- |
+| Enabled | Yes | Include or skip the row |
+| Number | Yes | TP number without `TP` prefix |
+| DefaultValue | Yes | Default setpoint/value |
+| Min | Yes | Minimum allowed value |
+| Max | Yes | Maximum allowed value |
+| Unit | No | Engineering unit |
+| IsSafety | No | Maps to `isSafety` |
+| Decimals | No | Number of decimal places |
+| Type | No | Text-list/enumerated mode flag |
+| ListName | No | Text list name when `Type = true` |
+| SourceRef | No | Source row/document reference |
+| Comment | No | Free review note |
+
+#### Sheet: `RecipeParameters`
+
+| Column | Required | Meaning |
+| --- | --- | --- |
+| Enabled | Yes | Include or skip the row |
+| Number | Yes | RP number without `RP` prefix |
+| Min | Yes | Minimum allowed value |
+| Max | Yes | Maximum allowed value |
+| Unit | No | Engineering unit |
+| Decimals | No | Number of decimal places |
+| Type | No | Text-list/enumerated mode flag |
+| ListName | No | Text list name when `Type = true` |
+| SourceRef | No | Source row/document reference |
+| Comment | No | Free review note |
+
+#### Sheet: `Phases`
+
+One row per phase. This mirrors the current `AddPH(...)` method shape, including up to five phase parameters.
+
+| Column | Required | Meaning |
+| --- | --- | --- |
+| Enabled | Yes | Include or skip the row |
+| UnitName | Yes | Target unit |
+| OperationName | Yes | Operation name |
+| PhaseName | Yes | Phase name |
+| CountP | No | Active phase parameter count |
+| P01Type | No | Parameter 1 text-list mode |
+| P01Min | No | Parameter 1 minimum |
+| P01Max | No | Parameter 1 maximum |
+| P01Decimals | No | Parameter 1 decimal places |
+| P01Unit | No | Parameter 1 engineering unit |
+| P01TextList | No | Parameter 1 text list |
+| P02...P05 | No | Same shape for parameters 2 through 5 |
+| SourceRef | No | Source section reference |
+| Comment | No | Free review note |
+
+### Code Architecture Proposal
+
+Add a small project-definition layer to the app project, not to `TIA_LIB` initially:
+
+```text
+etu-process-generator-TiAv20/
+  ProjectDefinition/
+    ProjectDefinition.cs
+    ProjectDefinitionLoader.cs
+    ProjectDefinitionValidator.cs
+    ProjectDefinitionApplier.cs
+```
+
+Responsibilities:
+
+- `ProjectDefinition`: DTOs for metadata, units, devices, TPs, RPs, and phases.
+- `ProjectDefinitionLoader`: reads the workbook using GemBox and converts rows into DTOs.
+- `ProjectDefinitionValidator`: validates required fields, enum values, duplicate rows, numeric ranges, and method-specific constraints.
+- `ProjectDefinitionApplier`: converts DTOs into existing `Add...` method calls on `PlcProject`.
+
+### Execution Flow Proposal
+
+Long-term preferred flow:
+
+```text
+load workbook
+validate workbook
+connect to TIA Portal
+apply definition through Add... methods
+CreateTags()
+Upload()
+CheckTags()
+GenerateSiVarc()
+UserInterface()
+```
+
+Important lifecycle note:
+
+- `PlcProject()` currently connects to TIA Portal and compiles PLC in its constructor.
+- For strong validation safety, TIA connection should eventually become explicit and occur after workbook validation.
+- If that refactor is too large for the first pass, still add validation before `Upload()` and avoid changing runtime behavior beyond input loading.
+
+### Validation Rules To Start With
+
+- Required sheets must exist.
+- Required columns must exist by exact header name.
+- `Enabled` values must parse as booleans.
+- `DeviceType` must be one of the supported values.
+- Enabled rows must have required fields for their type.
+- Unit names referenced by enabled device/phase rows must exist or be auto-created by documented policy.
+- Duplicate `(UnitName, DeviceType, Name)` rows should be rejected or reported.
+- Duplicate TP/RP numbers should be rejected.
+- Numeric values should parse culture-independently; support `.` and `,` decimal separators deliberately.
+- Text-list names should be required when `Type = true`.
+- Unknown non-empty columns should be reported as warnings so template drift is visible.
+
+### Migration Plan
+
+1. Create a sample workbook template under `Templates\`.
+2. Add DTOs and loader for `Metadata`, `Units`, and `Devices`.
+3. Add validator and readable row/column error messages.
+4. Add an application setting or command-line argument for the workbook path.
+5. Convert current BL170 hardcoded rows into the template.
+6. Replace hardcoded active device calls in `Project.cs` with `ProjectDefinitionApplier`.
+7. Add `TechnicalParameters`, `RecipeParameters`, and `Phases` support.
+8. Add a validation-only mode that does not connect to TIA Portal.
+9. Refactor `PlcProject` lifecycle so validation can happen before any TIA Portal connection.
+
+### Verification Ideas
+
+- The current BL170 workbook produces the same active `Add...` calls as the current hardcoded `Project.cs`.
+- Missing required columns fail with clear sheet and column names.
+- Invalid row values fail with sheet name, row number, column name, and bad value.
+- Disabled rows are ignored.
+- Decimal comma and decimal dot values parse predictably.
+- Build succeeds without requiring a workbook at compile time.
+- Validation-only mode runs without connecting to or mutating TIA Portal.
+
+### Risks And Open Questions
+
+- Excel is convenient, but template drift is likely unless headers and template version are enforced.
+- Culture-specific parsing can silently corrupt ranges if not handled carefully.
+- The current constructor side effects make early validation harder than it should be.
+- Some generated HMI/SiVArc behavior may rely on naming patterns not obvious from `Project.cs`.
+- The right policy for missing units needs a decision: require explicit `Units` rows, or auto-create units from device rows.
+- The template needs ownership: engineering-friendly enough to fill in, strict enough to generate safely.

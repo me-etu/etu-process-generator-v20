@@ -35,8 +35,8 @@ namespace EtuProcessGeneratorTiaV20
             AddAnalog("BL170", "QC-B14", 2, 0, "uS/cm", 3, 0, 500);
 
             // Niveauschalter; Schliesser
-            AddDigital("BL170", "Bl171-B13", 2, 0, 0, true, false);
-            AddDigital("BL170", "Bl172-B13", 2, 0, 0, true, false);
+            AddDigital("BL170", "BL171-B13", 2, 0, 0, true, false);
+            AddDigital("BL170", "BL172-B13", 2, 0, 0, true, false);
             #endregion
 
             #region Valves

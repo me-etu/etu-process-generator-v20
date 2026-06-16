@@ -21,9 +21,7 @@ Important notes live in:
 - `README.md`
 - `CHANGELOG.md`
 - `SKILLS.md`
-- `CHAT_KNOWLEDGE_TRANSFER.md`
-- `GENERATOR_SNIPPETS_KNOWHOW.md`
-- `PROJECT_CS_METHODS.md`
+- `GENERATOR_KNOWLEDGE_BASE.md`
 
 Read the relevant notes before changing generator behavior. Treat `SKILLS.md` as live session memory and update it with reusable discoveries.
 
@@ -42,8 +40,8 @@ Read the relevant notes before changing generator behavior. Treat `SKILLS.md` as
 - Inspect the relevant source and call path.
 - Identify the expected behavior and the failure mode.
 - Think through the test or verification step first.
-- For `Project.cs`, confirm method signatures in `PROJECT_CS_METHODS.md`.
-- For snippet work, follow `GENERATOR_SNIPPETS_KNOWHOW.md`.
+- For `Project.cs`, confirm method signatures in `GENERATOR_KNOWLEDGE_BASE.md`.
+- For snippet work, follow `GENERATOR_KNOWLEDGE_BASE.md`.
 
 ## Testing And Verification
 

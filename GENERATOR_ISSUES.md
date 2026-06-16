@@ -257,7 +257,7 @@ Creating or changing a unit currently requires editing internal C# code in `Proj
 ### Evidence
 
 - `etu-process-generator-TiAv20\Project.cs` contains active hardcoded calls such as `AddAnalog(...)`, `AddDigital(...)`, and `AddValve(...)`.
-- `GENERATOR_SNIPPETS_KNOWHOW.md` already describes engineering-data-to-`Add...` call preparation, which implies the source data can be represented as structured rows.
+- `GENERATOR_KNOWLEDGE_BASE.md` describes engineering-data-to-`Add...` call preparation, which implies the source data can be represented as structured rows.
 - The app already references `GemBox.Spreadsheet`, so reading Excel workbooks is available without adding a new dependency.
 
 ### Proposed Direction

@@ -58,10 +58,8 @@ This connects to an open or newly started TIA Portal instance and modifies the o
 
 ## Reference Files
 
-- `CHAT_KNOWLEDGE_TRANSFER.md`: debugging and project handoff notes.
-- `GENERATOR_SNIPPETS_KNOWHOW.md`: rules for preparing generator snippets.
-- `PROJECT_CS_METHODS.md`: project DSL method reference.
-- `TASK.txt`: current source task for `Project.cs` changes.
+- `GENERATOR_KNOWLEDGE_BASE.md`: canonical generator mental model, DSL reference, snippet workflow, tag behavior, troubleshooting, and safe workflows.
+- `GENERATOR_ISSUES.md`: tracked notes for generator behavior issues and design candidates.
 
 ## Build Notes
 

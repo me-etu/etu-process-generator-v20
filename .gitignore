@@ -29,3 +29,16 @@ packages/
 
 # Unused copied TIAOpenness sample/stub project
 TIAOpenness/TIAOpenness_ETU/
+
+# Specs
+Specs/
+
+
+# References SM project
+ETUGenSM/
+CHAT_KNOWLEDGE_TRANSFER.md
+GENERATOR_SNIPPETS_KNOWHOW.md
+PROJECT_CS_METHODS.md
+SKILLS.md
+TASK.txt
+Archive/

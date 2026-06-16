@@ -6,10 +6,12 @@ All notable project and generator changes should be recorded here.
 
 ### Added
 
+- Added `GENERATOR_KNOWLEDGE_BASE.md` as the canonical generator knowledge base covering mental model, DSL methods, snippet workflow, generated tags, troubleshooting, and safe workflows.
 - Added `GENERATOR_ISSUES.md` to track generator behavior issues before implementation.
 
 ### Changed
 
+- Consolidated `CHAT_KNOWLEDGE_TRANSFER.md`, `GENERATOR_SNIPPETS_KNOWHOW.md`, and `PROJECT_CS_METHODS.md` into `GENERATOR_KNOWLEDGE_BASE.md`; the old split docs are now local/ignored rather than tracked documentation.
 - Renamed the app project from `UnifiedSprechstunde15` to `etu-process-generator-TiAv20`.
 - Updated the app namespace to `EtuProcessGeneratorTiaV20`.
 - Renamed the solution and app project files to `etu-process-generator-TiAv20.sln` and `etu-process-generator-TiAv20\etu-process-generator-TiAv20.csproj`.

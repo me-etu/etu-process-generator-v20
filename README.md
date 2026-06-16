@@ -1,10 +1,10 @@
-# UnifiedSprechstunde15
+# etu-process-generator-TiAv20
 
 TIA Portal generator project for creating PLC function blocks, PLC tags, and Unified HMI-related objects from a declarative C# project definition.
 
 ## Purpose
 
-`UnifiedSprechstunde15/Project.cs` is the active generator script. It describes the plant model through helper calls inherited from `TIA_LIB.PlcProject`, such as:
+`etu-process-generator-TiAv20/Project.cs` is the active generator script. It describes the plant model through helper calls inherited from `TIA_LIB.PlcProject`, such as:
 
 - `AddDigital(...)`
 - `AddAnalog(...)`
@@ -32,7 +32,7 @@ The app references this project directly through the solution/project files. The
 C:\TIAOpenness\TIA_Lib\TIA_LIB
 ```
 
-Do not hand-link `TIA_LIB.dll` from `UnifiedSprechstunde15\bin\x64\Debug`; Visual Studio/MSBuild should copy the referenced project output automatically.
+Do not hand-link `TIA_LIB.dll` from `etu-process-generator-TiAv20\bin\x64\Debug`; Visual Studio/MSBuild should copy the referenced project output automatically.
 
 ## Current Generation Flow
 
@@ -73,7 +73,7 @@ When validating with MSBuild:
 
 ```powershell
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
-  'UnifiedSprechstunde15.sln' `
+  'etu-process-generator-TiAv20.sln' `
   /t:Restore /p:RestorePackagesConfig=true
 
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
@@ -81,7 +81,7 @@ When validating with MSBuild:
   /p:Configuration=Debug /p:Platform=x64 /m
 
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
-  'UnifiedSprechstunde15\UnifiedSprechstunde15.csproj' `
+  'etu-process-generator-TiAv20\etu-process-generator-TiAv20.csproj' `
   /p:Configuration=Debug /p:Platform=x64 /m
 ```
 

@@ -32,7 +32,7 @@ using Siemens.Engineering.Compiler;
 using Siemens.Engineering.HmiUnified.UI.Events;
 using Siemens.Engineering.HmiUnified.UI.Enum;
 using Siemens.Engineering.HmiUnified.UI.Base;
-namespace UnifiedSprechstunde15
+namespace EtuProcessGeneratorTiaV20
 {
     
     public class Program: PlcProject

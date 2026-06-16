@@ -8,7 +8,7 @@ Act as a careful senior engineer. Make surgical, evidence-based changes. Prefer 
 
 ## Project Context
 
-This is a TIA Portal generator project. `UnifiedSprechstunde15/Project.cs` is a declarative generator script; most behavior lives in repo-local `TIA_LIB` at:
+This is a TIA Portal generator project. `etu-process-generator-TiAv20/Project.cs` is a declarative generator script; most behavior lives in repo-local `TIA_LIB` at:
 
 ```text
 TIAOpenness\TIA_Lib\TIA_LIB
@@ -48,7 +48,7 @@ Read the relevant notes before changing generator behavior. Treat `SKILLS.md` as
 ## Testing And Verification
 
 - Prefer targeted compile checks over broad side-effecting runs.
-- Building `UnifiedSprechstunde15/UnifiedSprechstunde15.csproj` is safer than building the full `.sln` if the solution references stale external paths.
+- Building `etu-process-generator-TiAv20/etu-process-generator-TiAv20.csproj` is safer than building the full `.sln` if the solution references stale external paths.
 - Running the app connects to or starts TIA Portal and mutates the open TIA project; do this only when intended.
 - When `TIA_LIB` changes, rebuild the solution or app project in `Debug|x64`; the app references the repo-local `TIA_LIB.csproj`.
 

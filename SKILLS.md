@@ -14,6 +14,14 @@ Use this file to record practical learnings that are too specific or operational
 
 ## 2026-06-12
 
+### Application Project Rename
+
+- The app project was renamed from `UnifiedSprechstunde15` to `etu-process-generator-TiAv20`.
+- Current app project path: `etu-process-generator-TiAv20\etu-process-generator-TiAv20.csproj`.
+- Current solution path: `etu-process-generator-TiAv20.sln`.
+- The C# app namespace is `EtuProcessGeneratorTiaV20`.
+- Historical notes may still mention `UnifiedSprechstunde15` when describing old paths, stack traces, or stale external copies.
+
 ### Repo-Local TIA_LIB Layout
 
 Current source of truth:
@@ -22,7 +30,7 @@ Current source of truth:
 
 Findings:
 
-- The old nested copy at `UnifiedSprechstunde15\TIA_LIB` was removed.
+- The old nested copy at `UnifiedSprechstunde15\TIA_LIB` was removed before the app rename.
 - `TIAOpenness\TIAOpenness_ETU` appears unused; no current solution/project references point to it.
 - The app should reference `TIA_LIB.csproj`, not a copied `TIA_LIB.dll` in `bin\x64\Debug`.
 - NuGet packages are restored from `packages.config`; the `packages/` folder stays ignored.
@@ -94,11 +102,11 @@ Current fix:
 
 ```powershell
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
-  'UnifiedSprechstunde15.sln' `
+  'etu-process-generator-TiAv20.sln' `
   /t:Restore /p:RestorePackagesConfig=true
 
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
-  'UnifiedSprechstunde15\UnifiedSprechstunde15.csproj' `
+  'etu-process-generator-TiAv20\etu-process-generator-TiAv20.csproj' `
   /p:Configuration=Debug /p:Platform=x64 /m
 ```
 

@@ -2,6 +2,12 @@
 
 All notable project and generator changes should be recorded here.
 
+## 2026-07-01
+
+### Added
+
+- Added the project-local `etu-generator-warmup` Codex skill for efficient, task-routed session onboarding.
+
 ## 2026-06-16
 
 ### Added

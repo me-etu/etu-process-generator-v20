@@ -1,0 +1,4 @@
+interface:
+  display_name: "ETU Warm-Up"
+  short_description: "Warm up efficiently for this TIA generator repo"
+  default_prompt: "Use $etu-generator-warmup to get oriented in this repo before starting work."

@@ -4,8 +4,13 @@ All notable project and generator changes should be recorded here.
 
 ## 2026-07-01
 
+### Fixed
+
+- Pruned unsupported multilingual cultures from generated PLC XML before import so templates with languages like es-ES, it-IT, fr-FR, or fr-BE do not fail in projects where those cultures are not enabled.
+
 ### Added
 
+- Applied the enabled `Vakuumzentrale` unit workbook rows to `Project.cs` as generator calls for pressure, pump controls, valves, and maintenance switches.
 - Added the project-local `etu-generator-warmup` Codex skill for efficient, task-routed session onboarding.
 - Added `unit_template.xlsx` as a G-009 primer workbook for unit spec-sheet preparation before generation.
 - Updated the G-008/G-009 planning docs and workbook template for optional `IOBindings` with unit-first `dbIO.<UnitName>.IN/OUT` staging paths.

@@ -30,8 +30,7 @@ packages/
 # Unused copied TIAOpenness sample/stub project
 TIAOpenness/TIAOpenness_ETU/
 
-# Specs and templates
-Specs/
+# Task inputs and templates
 /TASKS-UNITS
 
 

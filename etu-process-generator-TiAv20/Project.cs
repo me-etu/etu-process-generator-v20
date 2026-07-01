@@ -28,21 +28,37 @@ namespace EtuProcessGeneratorTiaV20
 
             #region Units
 
-            #region Unit BL170
+            #region Unit Vakuumzentrale
 
             #region Sensors
-            AddAnalog("BL170", "QC-B24", 2, 0, "uS/cm", 3, 0, 500);
-            AddAnalog("BL170", "QC-B14", 2, 0, "uS/cm", 3, 0, 500);
+            // Drucksensor Vakuumzentrale; Messbereich 0..1 bar abs.
+            AddAnalog("Vakuumzentrale", "100-BP1", 2, 0, "bar abs.", 3, 0, 1);
 
-            // Niveauschalter; Schliesser
-            AddDigital("BL170", "BL171-B13", 2, 0, 0, true, false);
-            AddDigital("BL170", "BL172-B13", 2, 0, 0, true, false);
+            AddDigital("Vakuumzentrale", "101-MA1-WARTUNG", 0, 0, 0, false, false);
+            AddDigital("Vakuumzentrale", "102-MA1-WARTUNG", 0, 0, 0, false, false);
+            AddDigital("Vakuumzentrale", "103-MA1-WARTUNG", 0, 0, 0, false, false);
+            AddDigital("Vakuumzentrale", "104-MA1-WARTUNG", 0, 0, 0, false, false);
+            #endregion
+
+            #region Motors
+            // Analog-controlled motors; no direct motor command hardware tag was present in source evidence.
+            AddMotorControl("Vakuumzentrale", "101-MA1", 6, 0, 0, "%", 1, false, false, -1, -1);
+            AddMotorControl("Vakuumzentrale", "102-MA1", 6, 0, 0, "%", 1, false, false, -1, -1);
+            AddMotorControl("Vakuumzentrale", "103-MA1", 6, 0, 0, "%", 1, false, false, -1, -1);
+            AddMotorControl("Vakuumzentrale", "104-MA1", 6, 0, 0, "%", 1, false, false, -1, -1);
             #endregion
 
             #region Valves
-            AddValve("BL170", "Q11", 2, 0, 0, false, false, false, false, true);
-            AddValve("BL170", "Q21", 2, 0, 0, false, false, false, false, true);
+            // Pump valves with open and closed feedback; QualityBit=false per workbook decision.
+            AddValve("Vakuumzentrale", "101-MB1", 3, 0, 0, true, true, false, false, true, -1, -1);
+            AddValve("Vakuumzentrale", "102-MB1", 3, 0, 0, true, true, false, false, true, -1, -1);
+            AddValve("Vakuumzentrale", "103-MB1", 3, 0, 0, true, true, false, false, true, -1, -1);
+            AddValve("Vakuumzentrale", "104-MB1", 3, 0, 0, true, true, false, false, true, -1, -1);
 
+            // Line valves without feedback; QualityBit=false per workbook decision.
+            AddValve("Vakuumzentrale", "110-MB1", 3, 0, 0, false, false, false, false, true, -1, -1);
+            AddValve("Vakuumzentrale", "110-MB2", 3, 0, 0, false, false, false, false, true, -1, -1);
+            AddValve("Vakuumzentrale", "110-MB3", 3, 0, 0, false, false, false, false, true, -1, -1);
             #endregion
 
             #endregion

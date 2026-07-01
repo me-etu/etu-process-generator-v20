@@ -536,6 +536,26 @@ AddAnalog("GeneralSignals", "PIT0060", 2, 0, "bar(g)", 1, -1, 10);
 - Avoid carrying old commented template blocks into the clean active project file.
 - Count active `Add...` calls and compare with source snippets.
 
+### Simulator Device UI Template
+
+When adding or regenerating a unit, also create or update a unit-specific simulator UI file in:
+
+```text
+SimulationFiles
+```
+
+Use `SimulationFiles\DeviceUiTemplate.json` as the shape reference. The unit copy should include only the devices for that generated unit and keep PLC tag spelling exactly as exported from TIA Portal. `uiId` and UI control names must be WPF-safe: use letters, digits, and underscores.
+
+Current expected content:
+
+- `analogInputs` for `AddAnalog(...)` devices
+- `digitalInputs` for `AddDigital(...)` devices, including `_QB` tags when quality bits are generated
+- `valves` for `AddValve(...)` devices, including control, feedback, and feedback quality-bit tags when present
+- `actuators` for motor-style devices when applicable
+- `markerFallbacks` only when marker addresses are known from TIA tag exports or screenshots
+
+These files are used by the simulator and are currently maintained manually. After the G-008 generated DB staging and G-009 external project-definition workbook upgrades, this template should be modified and integrated into the automatic generation workflow.
+
 ### Review Checklist
 
 - all device names are dotless

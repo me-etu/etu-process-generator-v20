@@ -2,6 +2,12 @@
 
 All notable project and generator changes should be recorded here.
 
+## 2026-06-16
+
+### Added
+
+- Documented the simulator device UI template workflow for new/generated units, including the future G-008/G-009 integration note.
+
 ## 2026-06-15
 
 ### Added

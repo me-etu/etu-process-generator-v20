@@ -1,0 +1,4 @@
+interface:
+  display_name: "Execute Spec"
+  short_description: "Implement specs safely with verification"
+  default_prompt: "Use $execute-spec to implement a tracked Specs/*.md file safely and verify acceptance criteria."

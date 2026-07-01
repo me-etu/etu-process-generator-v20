@@ -7,6 +7,10 @@ All notable project and generator changes should be recorded here.
 ### Added
 
 - Added the project-local `etu-generator-warmup` Codex skill for efficient, task-routed session onboarding.
+- Added `unit_template.xlsx` as a G-009 primer workbook for unit spec-sheet preparation before generation.
+- Updated the G-008/G-009 planning docs and workbook template for optional `IOBindings` with unit-first `dbIO.<UnitName>.IN/OUT` staging paths.
+- Simplified `IOBindings` so standard signal identity, direction, type, UDT membership, and dbIO paths are derived rather than manually typed.
+- Added the project-local `fill-unit-workbook` skill for extracting Devices and IOBindings rows from mixed unit source evidence.
 
 ## 2026-06-16
 
@@ -60,3 +64,6 @@ All notable project and generator changes should be recorded here.
   - `TIAOpenness\TIA_Lib\TIA_LIB\Xml\XmlPlant.cs`
   - `TIAOpenness\TIA_Lib\TIA_LIB\SiemensPortal.cs`
 - App project builds successfully with `Debug|x64`; current warnings are non-blocking.
+
+
+

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fill Unit Workbook"
+  short_description: "Extract unit data into workbook rows"
+  default_prompt: "Use $fill-unit-workbook to turn unit source files into clarified Devices and IOBindings workbook rows."

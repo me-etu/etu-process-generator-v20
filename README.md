@@ -60,6 +60,7 @@ This connects to an open or newly started TIA Portal instance and modifies the o
 
 - `GENERATOR_KNOWLEDGE_BASE.md`: canonical generator mental model, DSL reference, snippet workflow, tag behavior, troubleshooting, and safe workflows.
 - `GENERATOR_ISSUES.md`: tracked notes for generator behavior issues and design candidates.
+- `unit_template.xlsx`: planning workbook for G-009-style unit spec sheets. It is a local template artifact only and does not connect to or run TIA Portal.
 
 ## Build Notes
 
@@ -84,3 +85,4 @@ When validating with MSBuild:
 ```
 
 Running the app is not a harmless smoke test: it connects to TIA Portal and can mutate the open project.
+

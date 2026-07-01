@@ -536,6 +536,18 @@ AddAnalog("GeneralSignals", "PIT0060", 2, 0, "bar(g)", 1, -1, 10);
 - Avoid carrying old commented template blocks into the clean active project file.
 - Count active `Add...` calls and compare with source snippets.
 
+### Workbook Devices And IOBindings Split
+
+For the G-009 unit workbook primer:
+
+- `Devices` describes generated process objects and maps to existing `Add...` methods.
+- `IOBindings` describes hardware source evidence: `UnitName`, `DeviceName`, `SignalRole`, `HardwareTag`, optional scaling, `SourceRef`, and `Comment`.
+- Standard signal identity and dbIO paths are derived from generator rules, not typed into the workbook.
+- Use `SignalOverride` only for non-standard/manual signals that cannot be derived from `DeviceName + SignalRole`.
+- Future DB/UDT staging should copy `Comment` into generated dbIO variable comments where supported.
+- The preferred generated DB path shape is unit-first: `dbIO.<UnitName>.IN.<safe member>` and `dbIO.<UnitName>.OUT.<safe member>`.
+- Preferred generated UDT names are `hwIN_<UnitName>` and `hwOUT_<UnitName>`.
+- `fcReadIn` and `fcWriteOut` creation/manipulation is intentionally deferred to a later spec; current files are source evidence only.
 ### Simulator Device UI Template
 
 When adding or regenerating a unit, also create or update a unit-specific simulator UI file in:
@@ -748,3 +760,5 @@ High-value future improvements:
 The visible `Add...` call in `Project.cs` is usually only the trigger. The behavior lives deeper in repo-local `TIA_LIB`, generated XML, TIA Portal state, and Unified HMI/SiVArc side effects.
 
 When in doubt, verify the loaded library path first, then inspect the generated XML or missing template path that the stack trace points to.
+
+

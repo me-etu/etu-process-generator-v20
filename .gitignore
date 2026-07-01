@@ -30,8 +30,9 @@ packages/
 # Unused copied TIAOpenness sample/stub project
 TIAOpenness/TIAOpenness_ETU/
 
-# Specs
+# Specs and templates
 Specs/
+/TASKS-UNITS
 
 
 # References SM project
@@ -43,3 +44,7 @@ SKILLS.md
 TASK.txt
 Archive/
 SimulationFiles/
+unit_template.xlsx
+
+# codex stuff
+create_unit_template_workbook.ps1

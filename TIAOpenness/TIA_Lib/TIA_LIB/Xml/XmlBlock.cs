@@ -44,6 +44,11 @@ namespace TIA_LIB.Xml
             }
 
             Xml = SiemensPortal.Current.ExportPlcBlock(UserGroup, _Name, FileName);
+            if (Xml != null)
+            {
+                _AllowedCultures = GetCultures(Xml);
+                AddProjectCultures(_AllowedCultures);
+            }
 
             if (Xml == null || overwrite)
             {
@@ -137,6 +142,50 @@ namespace TIA_LIB.Xml
             }
         }
         private string _Name;
+        private static HashSet<string> _ProjectCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private HashSet<string> _AllowedCultures;
+
+        private HashSet<string> GetCultures(XElement xml)
+        {
+            return new HashSet<string>(
+                xml.Descendants("Culture")
+                   .Select(el => el.Value)
+                   .Where(value => !string.IsNullOrWhiteSpace(value)),
+                StringComparer.OrdinalIgnoreCase);
+        }
+
+        private void AddProjectCultures(HashSet<string> cultures)
+        {
+            foreach (var culture in cultures)
+            {
+                _ProjectCultures.Add(culture);
+            }
+        }
+
+        private void PruneUnsupportedMultilingualTextItems()
+        {
+            if (_AllowedCultures == null || _AllowedCultures.Count == 0)
+            {
+                _AllowedCultures = _ProjectCultures.Count > 0
+                    ? new HashSet<string>(_ProjectCultures, StringComparer.OrdinalIgnoreCase)
+                    : new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "de-DE", "en-US" };
+            }
+
+            var unsupportedItems = Xml
+                .Descendants("MultilingualTextItem")
+                .Where(item =>
+                {
+                    var culture = item.Descendants("Culture").FirstOrDefault()?.Value;
+                    return !string.IsNullOrWhiteSpace(culture) && !_AllowedCultures.Contains(culture);
+                })
+                .ToList();
+
+            foreach (var item in unsupportedItems)
+            {
+                item.Remove();
+            }
+        }
+
         public void Upload()
         {
             if (!HasChanged) return;
@@ -148,6 +197,8 @@ namespace TIA_LIB.Xml
                 el.SetAttributeValue("ID", count.ToString("X"));
                 count++;
             }
+
+            PruneUnsupportedMultilingualTextItems();
 
             Xml.Save(FileName);
 

@@ -232,20 +232,19 @@ Before implementing unit-scoped external tags broadly, trace one simple analog a
 - `CheckTags()` does not delete valid unit-scoped generated tags.
 - Unified faceplate properties still resolve the expected HMI tags and config data.
 
-## G-008: Consider A Generated DB Instead Of Marker Memory
+## G-008: Optional Generated DB/UDT Signal Staging
 
-Status: Deferred
+Status: Implemented on branch `g-008-generated-db-staging`
 
 ### Symptom
 
 Marker memory is global, address-sensitive, and easy to collide with manual project content.
 
-### Proposed Direction
+### Implemented Direction
 
-For a larger future change, consider replacing generated TEMP marker tags with a generated DB structure for external signal staging, if TIA Portal, SiVArc, and existing PLC patterns allow it.
+The generator now keeps marker memory as the default and adds an opt-in generated DB/UDT staging mode. DB/UDT mode generates `dbIO`, unit-specific `hwIN_<SafeUnitName>` and `hwOUT_<SafeUnitName>` UDTs, adds `hwIN`/`hwOUT` unit FB interface members, and wires those structures at the Plant/unit call boundary.
 
-This is intentionally deferred because it would be a broader architectural change than fixing the current TEMP tag generator.
-
+Follow-up work for `fcReadIn`/`fcWriteOut` generation and workbook-driven hardware evidence remains separate from G-008.
 ## G-009: External Project Definition Template
 
 Status: Design

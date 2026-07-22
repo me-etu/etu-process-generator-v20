@@ -544,9 +544,9 @@ For the G-009 unit workbook primer:
 - `IOBindings` describes hardware source evidence: `UnitName`, `DeviceName`, `SignalRole`, `HardwareTag`, optional scaling, `SourceRef`, and `Comment`.
 - Standard signal identity and dbIO paths are derived from generator rules, not typed into the workbook.
 - Use `SignalOverride` only for non-standard/manual signals that cannot be derived from `DeviceName + SignalRole`.
-- Future DB/UDT staging should copy `Comment` into generated dbIO variable comments where supported.
-- The preferred generated DB path shape is unit-first: `dbIO.<UnitName>.IN.<safe member>` and `dbIO.<UnitName>.OUT.<safe member>`.
-- Preferred generated UDT names are `hwIN_<UnitName>` and `hwOUT_<UnitName>`.
+- Generated DB/UDT staging copies available comments into generated dbIO/UDT members where supported.
+- Generated DB/UDT staging uses the unit-first DB path shape: `dbIO.<UnitName>.IN.<safe member>` and `dbIO.<UnitName>.OUT.<safe member>`.
+- Generated UDT names are `hwIN_<UnitName>` and `hwOUT_<UnitName>`.
 - `fcReadIn` and `fcWriteOut` creation/manipulation is intentionally deferred to a later spec; current files are source evidence only.
 ### Simulator Device UI Template
 
@@ -566,7 +566,7 @@ Current expected content:
 - `actuators` for motor-style devices when applicable
 - `markerFallbacks` only when marker addresses are known from TIA tag exports or screenshots
 
-These files are used by the simulator and are currently maintained manually. After the G-008 generated DB staging and G-009 external project-definition workbook upgrades, this template should be modified and integrated into the automatic generation workflow.
+These files are used by the simulator and are currently maintained manually. After the G-009 external project-definition workbook upgrade, this template should be modified and integrated into the automatic generation workflow.
 
 ### Review Checklist
 
@@ -760,5 +760,3 @@ High-value future improvements:
 The visible `Add...` call in `Project.cs` is usually only the trigger. The behavior lives deeper in repo-local `TIA_LIB`, generated XML, TIA Portal state, and Unified HMI/SiVArc side effects.
 
 When in doubt, verify the loaded library path first, then inspect the generated XML or missing template path that the stack trace points to.
-
-

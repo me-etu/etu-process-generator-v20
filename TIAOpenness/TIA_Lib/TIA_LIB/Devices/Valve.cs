@@ -14,7 +14,7 @@ namespace TIA_LIB.Devices
 {
     public class Valve : GeneratedObject
     {
-        public Valve(XmlUnit unit, string tagName, int iconType = 0, int interlockCount = 0, int SafeInterlockCount = 0, bool mon_opn = false, bool mon_cls = false, bool mon_const = false, bool qualityBit = true, bool neg = true, int tp_number = -1, int mon_t = -1) : base(unit, tagName)
+        public Valve(XmlUnit unit, string tagName, int iconType = 0, int interlockCount = 0, int SafeInterlockCount = 0, bool mon_opn = false, bool mon_cls = false, bool mon_const = false, bool qualityBit = true, bool neg = true, int tp_number = -1, int mon_t = -1, string networkComment = "") : base(unit, tagName)
         {
             Portal = SiemensPortal.Current;
             XmlPin andOut = null;
@@ -64,7 +64,7 @@ namespace TIA_LIB.Devices
                     }
                 }
 
-                network = unit.GetNetwork(tagName);
+                network = unit.GetNetwork(tagName, networkComment);
 
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
                 //network.SetParameter(call, "en", "Input", andOut);

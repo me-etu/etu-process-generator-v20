@@ -32,15 +32,7 @@ namespace TIA_LIB.Xml
                 text.Value = Name;
             }
 
-            if(description != "")
-            {
-                var comm = Xml.Descendants("MultilingualText").Where(el => el.Attribute("CompositionName").Value == "Comment").FirstOrDefault();
-
-                foreach (var text in comm.Descendants("Text"))
-                {
-                    text.Value = description;
-                }
-            }
+            SetComment(description);
 
             Block.HasChanged = true;
         }
@@ -102,6 +94,31 @@ namespace TIA_LIB.Xml
             Name = title.Descendants("Text").FirstOrDefault().Value;
 
             if(!Block.Networks.ContainsKey(Name)) Block.Networks.Add(Name, this);
+        }
+
+        public void SetComment(string description)
+        {
+            if (string.IsNullOrWhiteSpace(description)) return;
+
+            var comment = Xml.Descendants("MultilingualText")
+                .Where(el => el.Attribute("CompositionName") != null && el.Attribute("CompositionName").Value == "Comment")
+                .FirstOrDefault();
+            if (comment == null) return;
+
+            bool changed = false;
+            foreach (var text in comment.Descendants("Text"))
+            {
+                if (text.Value != description)
+                {
+                    text.Value = description;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                Block.HasChanged = true;
+            }
         }
 
         public XmlBlock Block;

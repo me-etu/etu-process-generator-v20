@@ -15,7 +15,7 @@ namespace TIA_LIB.Devices
     public class ValveControl : GeneratedObject
     {
 
-        public ValveControl(XmlUnit unit, string tagName, int iconType = 0, int interlockCount = 0, int SafeInterlockCount = 0, int numbDecPoints = 1, string unity = "%") : base(unit, tagName)
+        public ValveControl(XmlUnit unit, string tagName, int iconType = 0, int interlockCount = 0, int SafeInterlockCount = 0, int numbDecPoints = 1, string unity = "%", string networkComment = "") : base(unit, tagName)
         {
             Portal = SiemensPortal.Current;
             XmlPin andOut = null;
@@ -63,7 +63,7 @@ namespace TIA_LIB.Devices
                     }
                 }
 
-                network = unit.GetNetwork(tagName);
+                network = unit.GetNetwork(tagName, networkComment);
 
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
                 //network.SetParameter(call, "en", "Input", andOut);

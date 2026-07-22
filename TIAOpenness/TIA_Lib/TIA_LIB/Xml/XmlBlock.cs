@@ -114,6 +114,10 @@ namespace TIA_LIB.Xml
 
                 target.AddAfterSelf(network.Xml);
             }
+            else if (!string.IsNullOrWhiteSpace(description))
+            {
+                network.SetComment(description);
+            }
             return network;
         }
         public void GetInterfaceMember(string sectionName, string name, string datatype)

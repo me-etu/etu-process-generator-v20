@@ -16,7 +16,7 @@ namespace TIA_LIB.Devices
 {
     public class Analog : GeneratedObject
     {
-        public Analog(XmlUnit unit, string tagName, int iconType = 0, string unity = "", int numberDecPoints = 2, int countInstance = 0, float limValueMin = 0.0f, float limValueMax = 500.0f) : base(unit, tagName)
+        public Analog(XmlUnit unit, string tagName, int iconType = 0, string unity = "", int numberDecPoints = 2, int countInstance = 0, float limValueMin = 0.0f, float limValueMax = 500.0f, string networkComment = "") : base(unit, tagName)
         {
             Portal = SiemensPortal.Current;
             _CountInstance = countInstance;
@@ -75,7 +75,7 @@ namespace TIA_LIB.Devices
 
                 }
 
-                network = unit.GetNetwork(tagName);
+                network = unit.GetNetwork(tagName, networkComment);
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
 
                 if (countInstance != 0)

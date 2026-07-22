@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Siemens.Engineering.SW.Blocks;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.HmiUnified.UI.Screens;
@@ -14,7 +14,7 @@ namespace TIA_LIB.Devices
     public class PidControl : GeneratedObject
     {
 
-        public PidControl(XmlUnit unit, string tagName, int iconType = 0, int numbDecPoints = 2, string unity = "", int numbDecPointsOut = 1, string unityOut = "%") : base(unit, tagName)
+        public PidControl(XmlUnit unit, string tagName, int iconType = 0, int numbDecPoints = 2, string unity = "", int numbDecPointsOut = 1, string unityOut = "%", string networkComment = "") : base(unit, tagName)
         {
             Portal = SiemensPortal.Current;
             XmlCall call = null;
@@ -33,7 +33,7 @@ namespace TIA_LIB.Devices
 
             if (network == null)
             {
-                network = unit.GetNetwork(tagName);
+                network = unit.GetNetwork(tagName, networkComment);
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
                 network.SetParameter(call, "en", "Input", "Bool");;
             }

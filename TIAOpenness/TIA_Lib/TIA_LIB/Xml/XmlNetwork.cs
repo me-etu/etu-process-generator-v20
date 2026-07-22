@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Security;
@@ -249,7 +249,7 @@ namespace TIA_LIB.Xml
                 {
                     if (!Access.TryGetValue(Int32.Parse(uid), out xvalue))
                     {
-                        if(values.Count() > 1) xvalue = new XmlGlobal(this, values[0], values[1], type, isGlobal);
+                        if(values.Count() > 1) xvalue = new XmlGlobal(this, values, type, isGlobal);
                         if (values.Count() == 1 && isGlobal) xvalue = new XmlGlobal(this, values[0], null, type, isGlobal);
                         SetPin(pin, xvalue);
                         return;
@@ -264,7 +264,7 @@ namespace TIA_LIB.Xml
                     return;
                 }
 
-                if (values.Count() > 1) xvalue = new XmlGlobal(this, values[0], values[1], type, isGlobal);
+                if (values.Count() > 1) xvalue = new XmlGlobal(this, values, type, isGlobal);
                 if (values.Count() == 1 && isGlobal) xvalue = new XmlGlobal(this, values[0], null, type, isGlobal);
 
                 XmlWire wire;

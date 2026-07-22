@@ -1,4 +1,4 @@
-ï»¿using System;
+using System;
 using Siemens.Engineering.SW.Blocks;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.HmiUnified.UI.Screens;
@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Siemens.Engineering.HmiUnified.UI.Base;
 using TIA_LIB.Xml;
 using TIA_LIB.Xml.Network;
+using TIA_LIB.SignalStaging;
 using System.Xml.Linq;
 using System.Linq;
 using System.Drawing;
@@ -26,6 +27,8 @@ namespace TIA_LIB.Devices
             int indexInterlock = 0;
             int indexInterlockSafe = 0;
             var calledBlockName = "fbMotS";
+            var fbOnReference = SignalStagingInventory.InputReference("FB_ON_" + tagName);
+            var ctrlReference = SignalStagingInventory.OutputReference("CTRL_" + tagName);
             XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
             XNamespace _emtpyNamespace = "";
             bool isNewNetwork = false;
@@ -158,8 +161,8 @@ namespace TIA_LIB.Devices
 
                     network.SetParameter(call, "HAS_LOCK", "Input", "Bool", "True");
 
-                    network.SetParameter(call, "FB_ON", "Input", "Bool", "FB_ON_" + tagName, true); //Input verknÃ¼pfen mit FB_ON Variable
-                    network.SetParameter(call, "QCMD_ON", "Output", "Bool", "CTRL_" + tagName, true); //Output verknÃ¼pfen mit CTRL Variable
+                    network.SetParameter(call, "FB_ON", "Input", "Bool", fbOnReference.Value, fbOnReference.IsGlobal); //Input verknüpfen mit FB_ON Variable
+                    network.SetParameter(call, "QCMD_ON", "Output", "Bool", ctrlReference.Value, ctrlReference.IsGlobal); //Output verknüpfen mit CTRL Variable
 
                     if ((interlockCount != 0 || SafeInterlockCount != 0) && hasLock == null)
                     {
@@ -209,6 +212,11 @@ namespace TIA_LIB.Devices
             if(isNewNetwork) network.SetParameter(call, "PROT", "Input", "Bool", "F_Safe|" + "HSS", true);
 
             network.SetParameter(call, "MON_ON", "Input", "Bool", mon_on.ToString());
+            if (PlcProject.StagingMode == SignalStagingMode.GeneratedDbUdt)
+            {
+                network.SetParameter(call, "FB_ON", "Input", "Bool", fbOnReference.Value, fbOnReference.IsGlobal);
+                network.SetParameter(call, "QCMD_ON", "Output", "Bool", ctrlReference.Value, ctrlReference.IsGlobal);
+            }
      
             if (mon_const)
             {

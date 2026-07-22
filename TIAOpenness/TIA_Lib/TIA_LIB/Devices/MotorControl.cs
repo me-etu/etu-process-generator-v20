@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Siemens.Engineering.SW.Blocks;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.HmiUnified.UI.Screens;
@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Siemens.Engineering.HmiUnified.UI.Base;
 using TIA_LIB.Xml;
 using TIA_LIB.Xml.Network;
+using TIA_LIB.SignalStaging;
 using System.Xml.Linq;
 using System.Linq;
 using System.Drawing;
@@ -24,6 +25,8 @@ namespace TIA_LIB.Devices
             int indexInterlock = 0;
             int indexInterlockSafe = 0;
             var calledBlockName = "fbMotAn";
+            var ctrlReference = SignalStagingInventory.OutputReference("CTRL_" + tagName);
+            var fbOnReference = SignalStagingInventory.InputReference("FB_ON_" + tagName);
             XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
             XNamespace _emtpyNamespace = "";
             bool isNewNetwork = false;
@@ -209,6 +212,11 @@ namespace TIA_LIB.Devices
             network.SetParameter(call, "RESET", "Input", "Bool", "HMI|" + "RESET", true);
             if (isNewNetwork) network.SetParameter(call, "PROT", "Input", "Bool", "F_Safe|" + "HSS", true);
             network.SetParameter(call, "MON_ON", "Input", "Bool", mon_on.ToString());
+            if (PlcProject.StagingMode == SignalStagingMode.GeneratedDbUdt)
+            {
+                if (mon_on) network.SetParameter(call, "FB_ON", "Input", "Bool", fbOnReference.Value, fbOnReference.IsGlobal);
+                network.SetParameter(call, "QSETPOINT_INT", "Output", "INT", ctrlReference.Value, ctrlReference.IsGlobal);
+            }
 
             if (mon_const)
             {

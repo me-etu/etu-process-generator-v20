@@ -6,6 +6,8 @@ All notable project and generator changes should be recorded here.
 
 ### Added
 
+- Added optional generated DB/UDT signal staging mode with startup selection, unit `hwIN`/`hwOUT` interfaces, `dbIO` artifact planning, and mode-aware device signal references while preserving marker memory as the default.
+- Added automatic `fbUnit.FUNC_TEXT` generation for unit wrapper calls using the unit name.
 - Applied TASKS-UNITS/Vacud Updates/vacud_unit_template_payload.json to Project.cs, adding the remaining 20 Vacud unit sections and 122 generated device calls through the current marker-tag generator path.
 
 ## 2026-07-01

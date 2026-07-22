@@ -29,6 +29,11 @@ namespace TIA_LIB.Xml
             UserGroup = SiemensPortal.Current.CreatePlcFolder("Datablocks");
 
             Xml = SiemensPortal.Current.ExportPlcBlock(UserGroup, Name, FileName);
+            if (Xml != null)
+            {
+                _AllowedCultures = GetCultures(Xml);
+                AddProjectCultures(_AllowedCultures);
+            }
 
             if (Xml == null)
             {
@@ -53,9 +58,29 @@ namespace TIA_LIB.Xml
             }           
         }
 
+
+        public void SetMember(XmlDataMember member)
+        {
+            var existing = SectionList.Elements()
+                .FirstOrDefault(element => element.Attribute("Name") != null && element.Attribute("Name").Value == member.Name);
+
+            if (existing != null)
+            {
+                existing.ReplaceWith(member.ToXElement());
+            }
+            else
+            {
+                SectionList.Add(member.ToXElement());
+            }
+
+            HasChanged = true;
+        }
+
         public void Upload()
         {
             if (!HasChanged) return;
+
+            PruneUnsupportedMultilingualTextItems();
 
             Xml.Save(FileName);
 
@@ -86,8 +111,51 @@ namespace TIA_LIB.Xml
         public string FileName;
         public PlcBlockUserGroup UserGroup;
         public Dictionary<string, Xml.XmlGlobalInstance> GlobalsInstance = new Dictionary<string, XmlGlobalInstance>();
+        private static HashSet<string> _ProjectCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private HashSet<string> _AllowedCultures;
         private XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/Interface/v5";
         public static List<XmlDatablock> Datablocks;
+
+        private HashSet<string> GetCultures(XElement xml)
+        {
+            return new HashSet<string>(
+                xml.Descendants("Culture")
+                   .Select(el => el.Value)
+                   .Where(value => !string.IsNullOrWhiteSpace(value)),
+                StringComparer.OrdinalIgnoreCase);
+        }
+
+        private void AddProjectCultures(HashSet<string> cultures)
+        {
+            foreach (var culture in cultures)
+            {
+                _ProjectCultures.Add(culture);
+            }
+        }
+
+        private void PruneUnsupportedMultilingualTextItems()
+        {
+            if (_AllowedCultures == null || _AllowedCultures.Count == 0)
+            {
+                _AllowedCultures = _ProjectCultures.Count > 0
+                    ? new HashSet<string>(_ProjectCultures, StringComparer.OrdinalIgnoreCase)
+                    : new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "de-DE", "en-US" };
+            }
+
+            var unsupportedItems = Xml
+                .Descendants("MultilingualTextItem")
+                .Where(item =>
+                {
+                    var culture = item.Descendants("Culture").FirstOrDefault()?.Value;
+                    return !string.IsNullOrWhiteSpace(culture) && !_AllowedCultures.Contains(culture);
+                })
+                .ToList();
+
+            foreach (var item in unsupportedItems)
+            {
+                item.Remove();
+            }
+        }
 
     }
 }

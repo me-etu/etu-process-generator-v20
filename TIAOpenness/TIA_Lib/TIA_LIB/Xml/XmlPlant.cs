@@ -1,6 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Siemens.Engineering.SW.Blocks;
+using TIA_LIB.SignalStaging;
+using TIA_LIB.Xml.Network;
 
 namespace TIA_LIB.Xml
 {
@@ -25,11 +27,24 @@ namespace TIA_LIB.Xml
 
                 var network = FindNetwork(name) ?? FindUnitCallNetwork(name);
 
+                XmlCall call = null;
+
                 if(network == null)
                 {
                     network = GetNetwork(name);
-                    var call = network.GetCall("fb" + name, "FB", "GlobalVariable", name);
+                    call = network.GetCall("fb" + name, "FB", "GlobalVariable", name);
                     network.SetParameter(call, "en", "Input", "Bool");
+                }
+                else
+                {
+                    call = network.FindCall("fb" + name, "FB", "GlobalVariable", name);
+                }
+
+                if (PlcProject.StagingMode == SignalStagingMode.GeneratedDbUdt && call != null)
+                {
+                    string safeUnitName = SignalStagingInventory.SafeName(name);
+                    network.SetParameter(call, "hwIN", "Input", "hwIN_" + safeUnitName, "dbIO|" + safeUnitName + "|IN", true);
+                    network.SetParameter(call, "hwOUT", "Output", "hwOUT_" + safeUnitName, "dbIO|" + safeUnitName + "|OUT", true);
                 }      
             }
             return unit;

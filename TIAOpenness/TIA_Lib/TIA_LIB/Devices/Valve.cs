@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Siemens.Engineering.SW.Blocks;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.HmiUnified.UI.Screens;
@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Siemens.Engineering.HmiUnified.UI.Base;
 using TIA_LIB.Xml;
 using TIA_LIB.Xml.Network;
+using TIA_LIB.SignalStaging;
 using System.Xml.Linq;
 using System.Linq;
 
@@ -13,7 +14,7 @@ namespace TIA_LIB.Devices
 {
     public class Valve : GeneratedObject
     {
-        public Valve(XmlUnit unit, string tagName, int iconType = 0, int interlockCount = 0, int SafeInterlockCount = 0, bool mon_opn = false, bool mon_cls = false, bool mon_const = false, bool qualityBit = true, bool neg = true, int tp_number = -1, int mon_t = -1) : base(unit, tagName)
+        public Valve(XmlUnit unit, string tagName, int iconType = 0, int interlockCount = 0, int SafeInterlockCount = 0, bool mon_opn = false, bool mon_cls = false, bool mon_const = false, bool qualityBit = true, bool neg = true, int tp_number = -1, int mon_t = -1, string networkComment = "") : base(unit, tagName)
         {
             Portal = SiemensPortal.Current;
             XmlPin andOut = null;
@@ -23,6 +24,11 @@ namespace TIA_LIB.Devices
             int indexInterlock = 0;
             int indexInterlockSafe = 0;
             var calledBlockName = "fbVlv2Out";
+            var ctrlReference = SignalStagingInventory.OutputReference("CTRL_" + tagName);
+            var fbOpnReference = SignalStagingInventory.InputReference("FB_OPN_" + tagName);
+            var fbClsReference = SignalStagingInventory.InputReference("FB_CLS_" + tagName);
+            var fbOpnQualityReference = SignalStagingInventory.InputReference("FB_OPN_" + tagName + "_QB");
+            var fbClsQualityReference = SignalStagingInventory.InputReference("FB_CLS_" + tagName + "_QB");
             XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
             XNamespace _emtpyNamespace = "";
             bool isNewNetwork = false;
@@ -58,7 +64,7 @@ namespace TIA_LIB.Devices
                     }
                 }
 
-                network = unit.GetNetwork(tagName);
+                network = unit.GetNetwork(tagName, networkComment);
 
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
                 //network.SetParameter(call, "en", "Input", andOut);
@@ -225,15 +231,15 @@ namespace TIA_LIB.Devices
                         {
                             XmlLogic andLock_FB_OPN = new XmlLogic(network, XmlLogicType.And);
 
-                            network.SetPin(andLock_FB_OPN, "in1", "Bool", "FB_OPN_" + tagName, true, true, neg);
-                            network.SetPin(andLock_FB_OPN, "in2", "Bool", "FB_OPN_" + tagName + "_QB", true, true);
+                            network.SetPin(andLock_FB_OPN, "in1", "Bool", fbOpnReference.Value, false, fbOpnReference.IsGlobal, neg);
+                            network.SetPin(andLock_FB_OPN, "in2", "Bool", fbOpnQualityReference.Value, false, fbOpnQualityReference.IsGlobal);
 
                             XmlPin orLockOut_FB_OPN = andLock_FB_OPN.GetPin("out");
                             network.SetParameter(call, "FB_OPN", "Input", orLockOut_FB_OPN);
                         }
                         else
                         {
-                            network.SetParameter(call, "FB_OPN", "Input", "Bool", "FB_OPN_" + tagName, true, false, neg);
+                            network.SetParameter(call, "FB_OPN", "Input", "Bool", fbOpnReference.Value, fbOpnReference.IsGlobal, false, neg);
                         }
                     }
 
@@ -252,15 +258,15 @@ namespace TIA_LIB.Devices
                         {
                             XmlLogic andLock_FB_CLS = new XmlLogic(network, XmlLogicType.And);
 
-                            network.SetPin(andLock_FB_CLS, "in1", "Bool", "FB_CLS_" + tagName, true, true, neg);
-                            network.SetPin(andLock_FB_CLS, "in2", "Bool", "FB_CLS_" + tagName + "_QB", true, true);
+                            network.SetPin(andLock_FB_CLS, "in1", "Bool", fbClsReference.Value, false, fbClsReference.IsGlobal, neg);
+                            network.SetPin(andLock_FB_CLS, "in2", "Bool", fbClsQualityReference.Value, false, fbClsQualityReference.IsGlobal);
 
                             XmlPin orLockOut_FB_CLS = andLock_FB_CLS.GetPin("out");
                             network.SetParameter(call, "FB_CLS", "Input", orLockOut_FB_CLS);
                         }
                         else
                         {
-                            network.SetParameter(call, "FB_CLS", "Input", "Bool", "FB_CLS_" + tagName, true, false, neg);
+                            network.SetParameter(call, "FB_CLS", "Input", "Bool", fbClsReference.Value, fbClsReference.IsGlobal, false, neg);
                         }
                     }
 
@@ -284,8 +290,8 @@ namespace TIA_LIB.Devices
                         
                         XmlLogic orLock = new XmlLogic(network, XmlLogicType.Or);
 
-                        network.SetPin(orLock, "in1", "Bool", "FB_OPN_" + tagName + "_QB", true, true, true);
-                        network.SetPin(orLock, "in2", "Bool", "FB_CLS_" + tagName + "_QB", true, true, true);
+                        network.SetPin(orLock, "in1", "Bool", fbOpnQualityReference.Value, false, fbOpnQualityReference.IsGlobal, true);
+                        network.SetPin(orLock, "in2", "Bool", fbClsQualityReference.Value, false, fbClsQualityReference.IsGlobal, true);
 
                         XmlPin orLockOut = orLock.GetPin("out");
                         network.SetParameter(call, "ERR_EXT", "Input", orLockOut);
@@ -309,7 +315,7 @@ namespace TIA_LIB.Devices
 
                         if (deleteWire != null && deleteWire.Attributes("Name").Any(attr => attr.Value == "ERR_EXT"))
                         {
-                            network.SetParameter(call, "ERR_EXT", "Input", "Bool", "FB_OPN_" + tagName + "_QB", true);
+                            network.SetParameter(call, "ERR_EXT", "Input", "Bool", fbOpnQualityReference.Value, fbOpnQualityReference.IsGlobal);
                         }
                         
                     }
@@ -320,13 +326,18 @@ namespace TIA_LIB.Devices
 
                         if (deleteWire != null && deleteWire.Attributes("Name").Any(attr => attr.Value == "ERR_EXT"))
                         {
-                            network.SetParameter(call, "ERR_EXT", "Input", "Bool", "FB_CLS_" + tagName + "_QB", true);
+                            network.SetParameter(call, "ERR_EXT", "Input", "Bool", fbClsQualityReference.Value, fbClsQualityReference.IsGlobal);
                         }
                     }
                 }
 
-                network.SetParameter(call, "QCTRL", "Output", "Bool", "CTRL_" + tagName, true);
+                network.SetParameter(call, "QCTRL", "Output", "Bool", ctrlReference.Value, ctrlReference.IsGlobal);
 
+            }
+
+            if (!(mon_opn || mon_cls) && PlcProject.StagingMode == SignalStagingMode.GeneratedDbUdt)
+            {
+                network.SetParameter(call, "QCTRL", "Output", "Bool", ctrlReference.Value, ctrlReference.IsGlobal);
             }
 
             if (mon_const)

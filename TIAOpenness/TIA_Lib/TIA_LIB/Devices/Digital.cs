@@ -1,7 +1,8 @@
-﻿using Siemens.Engineering.HmiUnified.UI.Screens;
+using Siemens.Engineering.HmiUnified.UI.Screens;
 using System;
 using TIA_LIB.Xml;
 using TIA_LIB.Xml.Network;
+using TIA_LIB.SignalStaging;
 using System.Linq;
 using System.Xml.Linq;
 using System.Collections.Generic;
@@ -15,7 +16,7 @@ namespace TIA_LIB.Devices
     //}
     public class Digital : GeneratedObject
     {
-        public Digital(XmlUnit unit, string tagName, int iconType = 0, int colorState = 0, int countInstance = 0, bool qualityBit = true, bool neg = true) : base(unit, tagName)
+        public Digital(XmlUnit unit, string tagName, int iconType = 0, int colorState = 0, int countInstance = 0, bool qualityBit = true, bool neg = true, string networkComment = "") : base(unit, tagName)
         {
             Portal = SiemensPortal.Current;
             _CountInstance = countInstance;
@@ -34,6 +35,8 @@ namespace TIA_LIB.Devices
 
             int indexInstance = 0;
             var calledBlockName = "fbMonDi";
+            var inputReference = SignalStagingInventory.InputReference("IN_" + tagName);
+            var qualityReference = SignalStagingInventory.InputReference("IN_" + tagName + "_QB");
 
             var network = unit.FindNetwork(tagName);
 
@@ -66,7 +69,7 @@ namespace TIA_LIB.Devices
 
                 }
 
-                network = unit.GetNetwork(tagName);
+                network = unit.GetNetwork(tagName, networkComment);
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
 
                 if (countInstance != 0)
@@ -84,8 +87,8 @@ namespace TIA_LIB.Devices
 
                         network.SetParameter(instance, "CFG", "Input", "typeDigitalCfg", "cfgData|" + unit.Name + "_" + tagName + "_Instance" + (indexInstance), true);;
                         network.SetParameter(instance, "RESET", "Input", "Bool", "RESET_CYCL", true);
-                        network.SetParameter(instance, "IN", "Input", "Bool", "IN_" + tagName, true, false, neg);
-                        network.SetParameter(instance, "ERR_EXT", "Input", "Bool", "IN_" + tagName + "_QB", true, false, true);
+                        network.SetParameter(instance, "IN", "Input", "Bool", inputReference.Value, inputReference.IsGlobal, false, neg);
+                        network.SetParameter(instance, "ERR_EXT", "Input", "Bool", qualityReference.Value, qualityReference.IsGlobal, false, true);
 
                         if (countInstance > 1)
                         {
@@ -165,8 +168,8 @@ namespace TIA_LIB.Devices
 
             if (isNewNetwork)
             {
-                if (qualityBit) network.SetParameter(call, "ERR_EXT", "Input", "Bool", "IN_" + tagName + "_QB", true, false, true);
-                network.SetParameter(call, "IN", "Input", "Bool", "IN_" + tagName, true, false, neg);
+                if (qualityBit) network.SetParameter(call, "ERR_EXT", "Input", "Bool", qualityReference.Value, qualityReference.IsGlobal, false, true);
+                network.SetParameter(call, "IN", "Input", "Bool", inputReference.Value, inputReference.IsGlobal, false, neg);
                 network.SetParameter(call, "CFG", "Input", "typeDigitalCfg", "cfgData|" + unit.Name + "_" + tagName, true);
             }
                 
@@ -276,7 +279,7 @@ namespace TIA_LIB.Devices
                 {
                     instance = network.FindCall(calledBlockName, "FB", "LocalVariable", tagName + "_Instance" + (indexInstance));
                     //network.SetParameter(instance, "IN", "Input", "Bool", "IN_" + tagName, true, false, true);
-                    //network.SetParameter(instance, "ERR_EXT", "Input", "Bool", "IN_" + tagName + "_QB", true, false, true);
+                    //network.SetParameter(instance, "ERR_EXT", "Input", "Bool", qualityReference.Value, qualityReference.IsGlobal, false, true);
                     //network.SetParameter(instance, "RESET", "Input", "Bool", "RESET_CYCL", true);
                 }
             }

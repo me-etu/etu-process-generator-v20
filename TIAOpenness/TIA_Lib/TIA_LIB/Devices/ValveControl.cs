@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Siemens.Engineering.SW.Blocks;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.HmiUnified.UI.Screens;
@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Siemens.Engineering.HmiUnified.UI.Base;
 using TIA_LIB.Xml;
 using TIA_LIB.Xml.Network;
+using TIA_LIB.SignalStaging;
 using System.Xml.Linq;
 using System.Linq;
 
@@ -14,7 +15,7 @@ namespace TIA_LIB.Devices
     public class ValveControl : GeneratedObject
     {
 
-        public ValveControl(XmlUnit unit, string tagName, int iconType = 0, int interlockCount = 0, int SafeInterlockCount = 0, int numbDecPoints = 1, string unity = "%") : base(unit, tagName)
+        public ValveControl(XmlUnit unit, string tagName, int iconType = 0, int interlockCount = 0, int SafeInterlockCount = 0, int numbDecPoints = 1, string unity = "%", string networkComment = "") : base(unit, tagName)
         {
             Portal = SiemensPortal.Current;
             XmlPin andOut = null;
@@ -24,6 +25,7 @@ namespace TIA_LIB.Devices
             int indexInterlock = 0;
             int indexInterlockSafe = 0;
             var calledBlockName = "fbVlvCtrl";
+            var ctrlReference = SignalStagingInventory.OutputReference("CTRL_" + tagName);
             XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
             XNamespace _emtpyNamespace = "";
             bool isNewNetwork = false;
@@ -61,7 +63,7 @@ namespace TIA_LIB.Devices
                     }
                 }
 
-                network = unit.GetNetwork(tagName);
+                network = unit.GetNetwork(tagName, networkComment);
 
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
                 //network.SetParameter(call, "en", "Input", andOut);
@@ -206,7 +208,7 @@ namespace TIA_LIB.Devices
             network.SetParameter(call, "NUM_POINTS", "Input", "Usint", numbDecPoints.ToString());
             network.SetParameter(call, "RESET", "Input", "Bool", "HMI|" + "RESET", true);
             network.SetParameter(call, "PROT", "Input", "Bool", "F_Safe|" + "HSS", true);
-            network.SetParameter(call, "QSETPOINT_INT", "Output", "INT", "CTRL_" + tagName, true);
+            network.SetParameter(call, "QSETPOINT_INT", "Output", "INT", ctrlReference.Value, ctrlReference.IsGlobal);
 
             if (isNewNetwork)
             {

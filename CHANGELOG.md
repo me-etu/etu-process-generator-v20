@@ -6,6 +6,9 @@ All notable project and generator changes should be recorded here.
 
 ### Added
 
+- Added optional generated DB/UDT signal staging mode with startup selection, unit `hwIN`/`hwOUT` interfaces, `dbIO` artifact planning, and mode-aware device signal references while preserving marker memory as the default.
+- Added automatic unit name comments on the `fbUnit.FUNC_TEXT` Bool member for unit wrapper calls.
+- Added automatic device network comments from trailing `Project.cs` device-call comments.
 - Applied TASKS-UNITS/Vacud Updates/vacud_unit_template_payload.json to Project.cs, adding the remaining 20 Vacud unit sections and 122 generated device calls through the current marker-tag generator path.
 
 ## 2026-07-01
@@ -75,6 +78,3 @@ All notable project and generator changes should be recorded here.
   - `TIAOpenness\TIA_Lib\TIA_LIB\Xml\XmlPlant.cs`
   - `TIAOpenness\TIA_Lib\TIA_LIB\SiemensPortal.cs`
 - App project builds successfully with `Debug|x64`; current warnings are non-blocking.
-
-
-

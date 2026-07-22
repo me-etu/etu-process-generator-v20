@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,6 +27,7 @@ using System.Xml.Linq;
 using System.Xml;
 using TIA_LIB;
 using TIA_LIB.Devices;
+using TIA_LIB.SignalStaging;
 using Siemens.Engineering.Compiler;
 
 using Siemens.Engineering.HmiUnified.UI.Events;
@@ -39,6 +40,9 @@ namespace EtuProcessGeneratorTiaV20
     {
         static void Main(string[] args)
         {
+            PlcProject.StagingMode = SelectSignalStagingMode();
+            Console.WriteLine("Signal staging mode: " + (PlcProject.StagingMode == SignalStagingMode.GeneratedDbUdt ? "Generated DB/UDT staging" : "Marker memory"));
+
             DeleteGeneratedOutput("Plant.xml");
 
             new Project();
@@ -105,6 +109,33 @@ namespace EtuProcessGeneratorTiaV20
 
             Console.WriteLine("Press any key to exit.");
             Console.ReadKey();
+        }
+
+
+        private static SignalStagingMode SelectSignalStagingMode()
+        {
+            while (true)
+            {
+                Console.WriteLine("Select signal staging mode:");
+                Console.WriteLine("1. Marker memory (current default)");
+                Console.WriteLine("2. Generated DB/UDT staging (experimental)");
+                Console.WriteLine();
+                Console.Write("Choice [1]: ");
+
+                string choice = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(choice) || choice.Trim() == "1")
+                {
+                    return SignalStagingMode.MarkerMemory;
+                }
+
+                if (choice.Trim() == "2")
+                {
+                    return SignalStagingMode.GeneratedDbUdt;
+                }
+
+                Console.WriteLine("Invalid choice. Enter 1 or 2.");
+                Console.WriteLine();
+            }
         }
 
         private static void DeleteGeneratedOutput(string fileName)

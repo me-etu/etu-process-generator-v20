@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,10 +9,14 @@ namespace TIA_LIB.Xml.Network
 {
     public class XmlGlobal: XmlAccess
     {
-        public XmlGlobal(XmlNetwork network, string value1, string value2, string datatype, bool isGlobal = false, bool isInstanceDB = false): base(network)
+        public XmlGlobal(XmlNetwork network, string value1, string value2, string datatype, bool isGlobal = false, bool isInstanceDB = false)
+            : this(network, new[] { value1, value2 }.Where(value => value != null && value != "").ToArray(), datatype, isGlobal, isInstanceDB)
         {
-            Value1 = value1;
-            Value2 = value2;
+        }
+
+        public XmlGlobal(XmlNetwork network, string[] components, string datatype, bool isGlobal = false, bool isInstanceDB = false): base(network)
+        {
+            Components = components.Where(value => value != null && value != "").ToList();
             Datatype = datatype;
 
             if(isGlobal) Xml.SetAttributeValue("Scope", "GlobalVariable");
@@ -21,77 +25,67 @@ namespace TIA_LIB.Xml.Network
             var symbol = new XElement("Symbol");
             Xml.Add(symbol);
 
-            if(value1 != "" && value1 != null)
+            foreach (var componentName in Components)
             {
-                var param1 = new XElement("Component");
-                param1.SetAttributeValue("Name", value1);
-                symbol.Add(param1);
+                var component = new XElement("Component");
+                component.SetAttributeValue("Name", componentName);
+                symbol.Add(component);
             }
 
-            if(value2 != "" && value2 != null)
-            {
-                var param2 = new XElement("Component");
-                param2.SetAttributeValue("Name", value2);
-                symbol.Add(param2);
-            }
+            Value1 = Components.Count > 0 ? Components[0] : null;
+            Value2 = Components.Count > 1 ? Components[1] : null;
+            Value = string.Join("|", Components);
 
-            if(isGlobal && value1 != null && value2 != null && (isInstanceDB || !value1.StartsWith("TP")))
+            if(isGlobal && Components.Count == 2 && (isInstanceDB || !Components[0].StartsWith("TP")))
             {
-                SiemensPortal.Current.GetValueFromGlobalDB(value1, value2, datatype);
+                SiemensPortal.Current.GetValueFromGlobalDB(Components[0], Components[1], datatype);
             }
 
             Network.Block.HasChanged = true;
         }
         public XmlGlobal(XmlNetwork network, XElement xml): base(network, xml)
         {
-            var el1 = xml.Descendants(_Namespace + "Component").FirstOrDefault();
+            Components = xml.Descendants(_Namespace + "Component")
+                .Select(component => component.Attribute("Name") != null ? component.Attribute("Name").Value : "")
+                .Where(value => value != "")
+                .ToList();
 
-            if (el1 != null)
-            {
-                Value1 = el1.Attribute("Name").Value;
-            }
-
-            var el2 = xml.Descendants(_Namespace + "Component").LastOrDefault();
-            if(el2 != null)
-            {
-                Value2 = el2.Attribute("Name").Value;
-            }
-
-
-            if(el2 != null) Value = Value1 + "|" + Value2;
-            if(el2 == null) Value = Value1;
+            Value1 = Components.Count > 0 ? Components[0] : null;
+            Value2 = Components.Count > 1 ? Components[1] : null;
+            Value = string.Join("|", Components);
         }
 
         public override void Set(string value)
         {
-            var values = value.Split('|');
+            var components = value.Split('|').Where(component => component != null && component != "").ToList();
 
-            if(values.Count() > 1)
+            if (components.SequenceEqual(Components))
             {
-                if (values[0] == Value1 && values[1] == Value2)
-                {
-                    return;
-                }
-
-                Value1 = values[0];
-                Value2 = values[1];
-
-                Xml.Descendants(_Namespace + "Component").FirstOrDefault().Value = Value1;
-                Xml.Descendants(_Namespace + "Component").LastOrDefault().Value = Value2;
-            }
-            else
-            {
-                if (values[0] == Value1)
-                {
-                    return;
-                }
-
-                Value1 = values[0];
-
-                Xml.Descendants(_Namespace + "Component").FirstOrDefault().Value = Value1;
-
+                return;
             }
 
+            Components = components;
+
+            var symbol = Xml.Descendants(_Namespace + "Symbol").FirstOrDefault();
+            if (symbol == null)
+            {
+                symbol = new XElement("Symbol");
+                Xml.Add(symbol);
+            }
+
+            symbol.Elements(_Namespace + "Component").Remove();
+            symbol.Elements("Component").Remove();
+
+            foreach (var componentName in Components)
+            {
+                var component = new XElement("Component");
+                component.SetAttributeValue("Name", componentName);
+                symbol.Add(component);
+            }
+
+            Value1 = Components.Count > 0 ? Components[0] : null;
+            Value2 = Components.Count > 1 ? Components[1] : null;
+            Value = string.Join("|", Components);
 
             Network.Block.HasChanged = true;
         }
@@ -99,6 +93,7 @@ namespace TIA_LIB.Xml.Network
         public string Value2;
         public string Value;
         public string Datatype;
+        public List<string> Components = new List<string>();
         private XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Security;
@@ -32,15 +32,7 @@ namespace TIA_LIB.Xml
                 text.Value = Name;
             }
 
-            if(description != "")
-            {
-                var comm = Xml.Descendants("MultilingualText").Where(el => el.Attribute("CompositionName").Value == "Comment").FirstOrDefault();
-
-                foreach (var text in comm.Descendants("Text"))
-                {
-                    text.Value = description;
-                }
-            }
+            SetComment(description);
 
             Block.HasChanged = true;
         }
@@ -102,6 +94,31 @@ namespace TIA_LIB.Xml
             Name = title.Descendants("Text").FirstOrDefault().Value;
 
             if(!Block.Networks.ContainsKey(Name)) Block.Networks.Add(Name, this);
+        }
+
+        public void SetComment(string description)
+        {
+            if (string.IsNullOrWhiteSpace(description)) return;
+
+            var comment = Xml.Descendants("MultilingualText")
+                .Where(el => el.Attribute("CompositionName") != null && el.Attribute("CompositionName").Value == "Comment")
+                .FirstOrDefault();
+            if (comment == null) return;
+
+            bool changed = false;
+            foreach (var text in comment.Descendants("Text"))
+            {
+                if (text.Value != description)
+                {
+                    text.Value = description;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                Block.HasChanged = true;
+            }
         }
 
         public XmlBlock Block;
@@ -249,7 +266,7 @@ namespace TIA_LIB.Xml
                 {
                     if (!Access.TryGetValue(Int32.Parse(uid), out xvalue))
                     {
-                        if(values.Count() > 1) xvalue = new XmlGlobal(this, values[0], values[1], type, isGlobal);
+                        if(values.Count() > 1) xvalue = new XmlGlobal(this, values, type, isGlobal);
                         if (values.Count() == 1 && isGlobal) xvalue = new XmlGlobal(this, values[0], null, type, isGlobal);
                         SetPin(pin, xvalue);
                         return;
@@ -264,7 +281,7 @@ namespace TIA_LIB.Xml
                     return;
                 }
 
-                if (values.Count() > 1) xvalue = new XmlGlobal(this, values[0], values[1], type, isGlobal);
+                if (values.Count() > 1) xvalue = new XmlGlobal(this, values, type, isGlobal);
                 if (values.Count() == 1 && isGlobal) xvalue = new XmlGlobal(this, values[0], null, type, isGlobal);
 
                 XmlWire wire;

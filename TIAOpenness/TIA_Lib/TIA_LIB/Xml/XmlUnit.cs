@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Siemens.Engineering.SW.Blocks;
 using TIA_LIB.Devices;
@@ -6,6 +6,7 @@ using TIA_LIB.Xml;
 using TIA_LIB.Xml.Network;
 using Siemens.Engineering.HmiUnified.UI.Screens;
 using System.Xml.Linq;
+using TIA_LIB.SignalStaging;
 
 namespace TIA_LIB.Xml
 {
@@ -15,6 +16,12 @@ namespace TIA_LIB.Xml
         {
             Name = name;
 
+            if (PlcProject.StagingMode == SignalStagingMode.GeneratedDbUdt)
+            {
+                string safeUnitName = SignalStagingInventory.SafeName(Name);
+                GetInterfaceMember("Input", "hwIN", "hwIN_" + safeUnitName);
+                GetInterfaceMember("Output", "hwOUT", "hwOUT_" + safeUnitName);
+            }
             XmlCall call = null;
 
             string calledBlockName;
@@ -38,6 +45,7 @@ namespace TIA_LIB.Xml
                     call = network.GetCall(calledBlockName, "FB", "LocalVariable", Name);
                 }
             }
+            SetLocalInstanceMemberComment(Name, "Input", "FUNC_TEXT", "Bool", GetUnitFunctionText());
 
             call = null;
 
@@ -151,6 +159,11 @@ namespace TIA_LIB.Xml
 
         public void SetFaceplateProperties()
         {
+        }
+
+        private string GetUnitFunctionText()
+        {
+            return Name;
         }
 
         public Dictionary<string, GeneratedObject> Devices = new Dictionary<string, GeneratedObject>();

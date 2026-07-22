@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,6 +12,8 @@ using Siemens.Engineering.HmiUnified.UI.Dynamization;
 using System.Threading;
 using Siemens.Engineering.Hmi.Communication;
 using System.Collections.Specialized;
+using System.Runtime.CompilerServices;
+using TIA_LIB.SignalStaging;
 
 namespace TIA_LIB
 {
@@ -62,14 +64,83 @@ namespace TIA_LIB
             return ph;
         }
 
-        public Valve AddValve(string unit_name, string name, int iconType = 0, int interlockCount = 0, int interlockSafeCount = 0, bool mon_opn = false, bool mon_cls = false, bool mon_const = false, bool qualityBit = true, bool neg = true, int tp_number = -1, int mon_t = -1)
+        private string GetCallerLineComment(string callerFilePath, int callerLineNumber)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(callerFilePath) || callerLineNumber <= 0 || !File.Exists(callerFilePath)) return "";
+
+                var line = File.ReadLines(callerFilePath).Skip(callerLineNumber - 1).FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(line)) return "";
+
+                return ExtractTrailingLineComment(line);
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        private string ExtractTrailingLineComment(string line)
+        {
+            bool inString = false;
+            bool inChar = false;
+            bool escaped = false;
+
+            for (int i = 0; i < line.Length - 1; i++)
+            {
+                char c = line[i];
+
+                if (escaped)
+                {
+                    escaped = false;
+                    continue;
+                }
+
+                if ((inString || inChar) && c == '\\')
+                {
+                    escaped = true;
+                    continue;
+                }
+
+                if (!inChar && c == '"')
+                {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (!inString && c == '\'')
+                {
+                    inChar = !inChar;
+                    continue;
+                }
+
+                if (!inString && !inChar && c == '/' && line[i + 1] == '/')
+                {
+                    var code = line.Substring(0, i).TrimEnd();
+                    if (!code.EndsWith(";")) return "";
+
+                    return line.Substring(i + 2).Trim();
+                }
+            }
+
+            return "";
+        }
+
+        public Valve AddValve(string unit_name, string name, int iconType = 0, int interlockCount = 0, int interlockSafeCount = 0, bool mon_opn = false, bool mon_cls = false, bool mon_const = false, bool qualityBit = true, bool neg = true, int tp_number = -1, int mon_t = -1, [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             var unit = Plant.GetUnit(unit_name);
+            var networkComment = GetCallerLineComment(callerFilePath, callerLineNumber);
+            StagingInventory.AddOutput(unit_name, "CTRL_" + name, "Bool", "Valve command " + name);
+            if (mon_opn) StagingInventory.AddInput(unit_name, "FB_OPN_" + name, "Bool", "Valve open feedback " + name);
+            if (mon_cls) StagingInventory.AddInput(unit_name, "FB_CLS_" + name, "Bool", "Valve closed feedback " + name);
+            if (qualityBit && mon_opn) StagingInventory.AddInput(unit_name, "FB_OPN_" + name + "_QB", "Bool", "Valve open feedback quality bit " + name);
+            if (qualityBit && mon_cls) StagingInventory.AddInput(unit_name, "FB_CLS_" + name + "_QB", "Bool", "Valve closed feedback quality bit " + name);
             var device = unit.GetDevice(name) as Valve;
 
             if(device == null)
             {
-                device = new Valve(unit, name, iconType, interlockCount, interlockSafeCount, mon_opn, mon_cls, mon_const, qualityBit, neg, tp_number, mon_t);
+                device = new Valve(unit, name, iconType, interlockCount, interlockSafeCount, mon_opn, mon_cls, mon_const, qualityBit, neg, tp_number, mon_t, networkComment);
             }
 
             Valves.Add(new TagValve("FB_OPN_" + name, "FB_CLS_" + name, "CTRL_" + name));
@@ -96,68 +167,81 @@ namespace TIA_LIB
             return new Rp(fbRPs, "RP" + number.ToString(), type, sp_max, sp_min, unity, numbDecPoints, listname);
 
         }
-        public ValveControl AddValveControl(string unit_name, string name, int iconType = 0, int interlockCount = 0, int interlockSafeCount = 0, string unity = "%", int numbDecPoints = 1)
+        public ValveControl AddValveControl(string unit_name, string name, int iconType = 0, int interlockCount = 0, int interlockSafeCount = 0, string unity = "%", int numbDecPoints = 1, [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             var unit = Plant.GetUnit(unit_name);
+            var networkComment = GetCallerLineComment(callerFilePath, callerLineNumber);
+            StagingInventory.AddOutput(unit_name, "CTRL_" + name, "Int", "ValveControl setpoint " + unity + ", " + numbDecPoints + " decimals");
             var device = unit.GetDevice(name) as ValveControl;
 
             if (device == null)
             {
-                device = new ValveControl(unit, name, iconType, interlockCount, interlockSafeCount, numbDecPoints, unity);
+                device = new ValveControl(unit, name, iconType, interlockCount, interlockSafeCount, numbDecPoints, unity, networkComment);
                 ControlValves.Add(new TagControlValve("CTRL_" + name));
             }
 
             return device;
         }
 
-        public Motor AddMotor(string unit_name, string name, int iconType = 0, int interlockCount = 0, int interlockSafeCount = 0, bool mon_on = false, bool mon_const = false, int tp_number = -1, int mon_t = -1)
+        public Motor AddMotor(string unit_name, string name, int iconType = 0, int interlockCount = 0, int interlockSafeCount = 0, bool mon_on = false, bool mon_const = false, int tp_number = -1, int mon_t = -1, [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             var unit = Plant.GetUnit(unit_name);
+            var networkComment = GetCallerLineComment(callerFilePath, callerLineNumber);
+            StagingInventory.AddInput(unit_name, "FB_ON_" + name, "Bool", "Motor running feedback " + name);
+            StagingInventory.AddOutput(unit_name, "CTRL_" + name, "Bool", "Motor command " + name);
             var device = unit.GetDevice(name) as Motor;
 
             if (device == null)
             {
-                device = new Motor(unit, name, iconType, interlockCount, interlockSafeCount, mon_on, mon_const, tp_number, mon_t);
+                device = new Motor(unit, name, iconType, interlockCount, interlockSafeCount, mon_on, mon_const, tp_number, mon_t, networkComment);
                 Motors.Add(new TagMotor("FB_ON_" + name, "CTRL_" + name));
             }
 
             return device;
         }
 
-        public MotorControl AddMotorControl(string unit_name, string name, int iconType = 0, int interlockCount = 0, int interlockSafeCount = 0, string unity = "%", int numbDecPoints = 1, bool mon_on = false, bool mon_const = false, int tp_number = -1, int mon_t = -1)
+        public MotorControl AddMotorControl(string unit_name, string name, int iconType = 0, int interlockCount = 0, int interlockSafeCount = 0, string unity = "%", int numbDecPoints = 1, bool mon_on = false, bool mon_const = false, int tp_number = -1, int mon_t = -1, [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             var unit = Plant.GetUnit(unit_name);
+            var networkComment = GetCallerLineComment(callerFilePath, callerLineNumber);
+            if (mon_on) StagingInventory.AddInput(unit_name, "FB_ON_" + name, "Bool", "Controlled motor running feedback " + name);
+            StagingInventory.AddOutput(unit_name, "CTRL_" + name, "Int", "MotorControl " + unity + ", " + numbDecPoints + " decimals");
             var device = unit.GetDevice(name) as MotorControl;
 
             if (device == null)
             {
-                device = new MotorControl(unit, name, iconType, interlockCount, interlockSafeCount, numbDecPoints, unity, mon_on, mon_const, tp_number, mon_t);
+                device = new MotorControl(unit, name, iconType, interlockCount, interlockSafeCount, numbDecPoints, unity, mon_on, mon_const, tp_number, mon_t, networkComment);
             }
              return device;
         }
 
-        public Analog AddAnalog(string unit_name, string name, int iconType = 0, int instanceCount = 0, string unity = "", int numbDecPoints = 1, float limMin = 0.0f, float limMax = 500.0f)
+        public Analog AddAnalog(string unit_name, string name, int iconType = 0, int instanceCount = 0, string unity = "", int numbDecPoints = 1, float limMin = 0.0f, float limMax = 500.0f, [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             var unit = Plant.GetUnit(unit_name);
+            var networkComment = GetCallerLineComment(callerFilePath, callerLineNumber);
+            StagingInventory.AddInput(unit_name, "IN_" + name, "Int", "Analog " + name + ", " + unity + ", " + numbDecPoints + " decimals, " + limMin + ".." + limMax);
             var device = unit.GetDevice(name) as Analog;
 
             if (device == null)
             {
-                device = new Analog(unit, name, iconType, unity, numbDecPoints, instanceCount, limMin, limMax);
+                device = new Analog(unit, name, iconType, unity, numbDecPoints, instanceCount, limMin, limMax, networkComment);
                 Analogs.Add(new TagAnalog("IN_" + name));
             }
 
             return device;
         }
 
-        public Digital AddDigital(string unit_name, string name, int iconType = 0, int colorType = 0, int instanceCount = 0, bool qualityBit = false, bool neg = false)
+        public Digital AddDigital(string unit_name, string name, int iconType = 0, int colorType = 0, int instanceCount = 0, bool qualityBit = false, bool neg = false, [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             var unit = Plant.GetUnit(unit_name);
+            var networkComment = GetCallerLineComment(callerFilePath, callerLineNumber);
+            StagingInventory.AddInput(unit_name, "IN_" + name, "Bool", "Digital input " + name);
+            if (qualityBit) StagingInventory.AddInput(unit_name, "IN_" + name + "_QB", "Bool", "Digital input quality bit " + name);
             var device = unit.GetDevice(name) as Digital;
 
             if (device == null)
             {
-                device = new Digital(unit, name, iconType, colorType, instanceCount, qualityBit, neg );
+                device = new Digital(unit, name, iconType, colorType, instanceCount, qualityBit, neg, networkComment);
                 Digitals.Add(new TagDigital("IN_" + name));
             }
 
@@ -165,14 +249,17 @@ namespace TIA_LIB
         }
 
 
-        public PidControl AddPidControl(string unit_name, string name, int iconType = 0,  string unity = "", int numbDecPoints = 1, string unityOut = "%", int numbDecPointsOut = 2)
+        public PidControl AddPidControl(string unit_name, string name, int iconType = 0,  string unity = "", int numbDecPoints = 1, string unityOut = "%", int numbDecPointsOut = 2, [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             var unit = Plant.GetUnit(unit_name);
+            var networkComment = GetCallerLineComment(callerFilePath, callerLineNumber);
+            StagingInventory.AddOutput(unit_name, name + "_SP", "Int", "PID setpoint " + unity + ", " + numbDecPoints + " decimals");
+            StagingInventory.AddOutput(unit_name, name + "_OUT", "Int", "PID output " + unityOut + ", " + numbDecPointsOut + " decimals");
             var device = unit.GetDevice(name) as PidControl;
 
             if (device == null)
             {
-                device = new PidControl(unit, name, iconType, numbDecPoints, unity, numbDecPointsOut, unityOut);
+                device = new PidControl(unit, name, iconType, numbDecPoints, unity, numbDecPointsOut, unityOut, networkComment);
             }
 
             return device;
@@ -266,6 +353,8 @@ namespace TIA_LIB
         public static List<Tp> TPs = new List<Tp>();
         public static List<Rp> RPs = new List<Rp>();
         public List<string> Messages = new List<string>();
+        public SignalStagingInventory StagingInventory = new SignalStagingInventory();
+        public static SignalStagingMode StagingMode = SignalStagingMode.MarkerMemory;
         public static void Upload()
         {
             var delayUnit = Task.Delay(TimeSpan.FromSeconds(5));
@@ -273,6 +362,23 @@ namespace TIA_LIB
             {
                 Thread.Sleep(TimeSpan.FromSeconds(5));
             }          
+
+            if (StagingMode == SignalStagingMode.GeneratedDbUdt && XmlUdt.Udts != null)
+            {
+                foreach (var udt in XmlUdt.Udts)
+                {
+                    udt.Upload();
+                }
+            }
+
+            var datablocksBeforePlant = XmlDatablock.Datablocks;
+            if (StagingMode == SignalStagingMode.GeneratedDbUdt && datablocksBeforePlant != null)
+            {
+                foreach (var datablock in datablocksBeforePlant)
+                {
+                    datablock.Upload();
+                }
+            }
 
             XmlPlant.Current.Upload();
 
@@ -471,8 +577,40 @@ namespace TIA_LIB
             }
         }
 
+
+        private void CreateGeneratedDbUdtStaging()
+        {
+            XmlUdt.Udts = new List<XmlUdt>();
+
+            foreach (var unitPlan in StagingInventory.Units)
+            {
+                XmlUnit unit;
+                if (Plant.Units.TryGetValue("fb" + unitPlan.OriginalName, out unit))
+                {
+                    unit.GetInterfaceMember("Input", "hwIN", "hwIN_" + unitPlan.SafeName);
+                    unit.GetInterfaceMember("Output", "hwOUT", "hwOUT_" + unitPlan.SafeName);
+                }
+            }
+
+            StagingInventory.LogPlan();
+
+            foreach (var udt in StagingInventory.CreateUdts())
+            {
+                Console.WriteLine("Prepared UDT XML: " + udt.Name);
+            }
+
+            StagingInventory.CreateDbIo();
+            Console.WriteLine("Prepared DB XML: dbIO");
+        }
         public void CreateTags()
         {
+            if (StagingMode == SignalStagingMode.GeneratedDbUdt)
+            {
+                CreateGeneratedDbUdtStaging();
+                return;
+            }
+
+            Console.WriteLine("Signal staging mode: Marker memory");
             var plc = SiemensPortal.Current.GetPlcSoftware();   //Aktuelle Instance aufrufen
             int countByte = 500;    //Merkeradresse für Valves
             int countBit = 0;

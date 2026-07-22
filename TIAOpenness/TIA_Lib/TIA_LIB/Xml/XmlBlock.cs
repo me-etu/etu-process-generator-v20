@@ -1,4 +1,4 @@
-﻿using Siemens.Engineering.SW.Blocks;
+using Siemens.Engineering.SW.Blocks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -90,6 +90,15 @@ namespace TIA_LIB.Xml
             return member;
         }
 
+        public void SetLocalInstanceMemberComment(string instanceName, string sectionName, string memberName, string datatype, string description)
+        {
+            XmlLocalInstance member;
+
+            if (LocalInstance.TryGetValue(instanceName, out member))
+            {
+                member.SetMemberComment(sectionName, memberName, datatype, description);
+            }
+        }
         public XmlNetwork FindNetwork(string name)
         {
             XmlNetwork network;
@@ -114,7 +123,47 @@ namespace TIA_LIB.Xml
 
                 target.AddAfterSelf(network.Xml);
             }
+            else if (!string.IsNullOrWhiteSpace(description))
+            {
+                network.SetComment(description);
+            }
             return network;
+        }
+        public void GetInterfaceMember(string sectionName, string name, string datatype)
+        {
+            var section = Xml.Descendants(_Namespace + "Section")
+                .FirstOrDefault(el => el.Attribute("Name") != null && el.Attribute("Name").Value == sectionName);
+
+            if (section == null)
+            {
+                var sections = Xml.Descendants(_Namespace + "Sections").FirstOrDefault();
+                if (sections == null) return;
+
+                section = new XElement(_Namespace + "Section");
+                section.SetAttributeValue("Name", sectionName);
+                sections.Add(section);
+            }
+
+            var member = section.Elements()
+                .FirstOrDefault(el => el.Attribute("Name") != null && el.Attribute("Name").Value == name);
+
+            if (member == null)
+            {
+                member = new XElement("Member");
+                member.SetAttributeValue("Name", name);
+                member.SetAttributeValue("Datatype", datatype);
+                member.SetAttributeValue("Accessibility", "Public");
+                section.Add(member);
+                HasChanged = true;
+                return;
+            }
+
+            var currentDatatype = member.Attribute("Datatype") != null ? member.Attribute("Datatype").Value : "";
+            if (currentDatatype != datatype)
+            {
+                member.SetAttributeValue("Datatype", datatype);
+                HasChanged = true;
+            }
         }
         public static List<XmlBlock> Blocks;
         public bool HasChanged = false;

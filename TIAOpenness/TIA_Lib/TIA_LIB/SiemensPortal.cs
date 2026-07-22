@@ -8,6 +8,7 @@ using Siemens.Engineering.HW.Features;
 using Siemens.Engineering.SW.Blocks;
 using Siemens.Engineering.SW;
 using Siemens.Engineering.SW.Tags;
+using Siemens.Engineering.SW.Types;
 using Siemens.Engineering.SW.ExternalSources;
 using System.Xml.Linq;
 using Siemens.Engineering.Compiler;
@@ -205,7 +206,14 @@ namespace TIA_LIB
                File.Delete(fileName);
             }
         }
-        public XElement ExportPlcBlock(PlcBlockUserGroup user_group, string blockName, string file_name, bool overwrite = true)
+        public void ImportPlcType(string typeName, string fileName)
+        {
+            if (File.Exists(fileName))
+            {
+                PlcSoftware.TypeGroup.Types.Import(new FileInfo(fileName), ImportOptions.Override);
+                File.Delete(fileName);
+            }
+        }        public XElement ExportPlcBlock(PlcBlockUserGroup user_group, string blockName, string file_name, bool overwrite = true)
         {
             //CompilePlcBlock(_plcBlockUserGroup, blockName);
 

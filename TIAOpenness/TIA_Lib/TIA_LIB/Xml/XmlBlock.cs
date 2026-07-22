@@ -90,6 +90,15 @@ namespace TIA_LIB.Xml
             return member;
         }
 
+        public void SetLocalInstanceMemberComment(string instanceName, string sectionName, string memberName, string datatype, string description)
+        {
+            XmlLocalInstance member;
+
+            if (LocalInstance.TryGetValue(instanceName, out member))
+            {
+                member.SetMemberComment(sectionName, memberName, datatype, description);
+            }
+        }
         public XmlNetwork FindNetwork(string name)
         {
             XmlNetwork network;

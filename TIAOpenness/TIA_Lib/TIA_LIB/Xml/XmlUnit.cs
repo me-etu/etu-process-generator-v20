@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Siemens.Engineering.SW.Blocks;
 using TIA_LIB.Devices;
@@ -45,11 +45,7 @@ namespace TIA_LIB.Xml
                     call = network.GetCall(calledBlockName, "FB", "LocalVariable", Name);
                 }
             }
-
-            if (call != null)
-            {
-                network.SetParameter(call, "FUNC_TEXT", "Input", "String", GetUnitFunctionText());
-            }
+            SetLocalInstanceMemberComment(Name, "Input", "FUNC_TEXT", "Bool", GetUnitFunctionText());
 
             call = null;
 
@@ -167,7 +163,7 @@ namespace TIA_LIB.Xml
 
         private string GetUnitFunctionText()
         {
-            return "'" + Name.Replace("'", "''") + "'";
+            return Name;
         }
 
         public Dictionary<string, GeneratedObject> Devices = new Dictionary<string, GeneratedObject>();

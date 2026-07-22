@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -41,6 +41,59 @@ namespace TIA_LIB.Xml
             Block.LocalInstance.Add(Name, this);
         }
 
+        public void SetMemberComment(string sectionName, string memberName, string datatype, string description)
+        {
+            if (string.IsNullOrWhiteSpace(description)) return;
+
+            var sections = Xml.Elements().FirstOrDefault(el => el.Name.LocalName == "Sections");
+            if (sections == null)
+            {
+                sections = new XElement(_Namespace + "Sections");
+                Xml.Add(sections);
+            }
+
+            var section = sections.Elements().FirstOrDefault(el => el.Name.LocalName == "Section" && el.Attribute("Name") != null && el.Attribute("Name").Value == sectionName);
+            if (section == null)
+            {
+                section = new XElement(_Namespace + "Section");
+                section.SetAttributeValue("Name", sectionName);
+                sections.Add(section);
+            }
+
+            var member = section.Elements().FirstOrDefault(el => el.Name.LocalName == "Member" && el.Attribute("Name") != null && el.Attribute("Name").Value == memberName);
+            if (member == null)
+            {
+                member = new XElement(_Namespace + "Member");
+                member.SetAttributeValue("Name", memberName);
+                member.SetAttributeValue("Datatype", datatype);
+                section.Add(member);
+            }
+            else if (member.Attribute("Datatype") == null)
+            {
+                member.SetAttributeValue("Datatype", datatype);
+            }
+
+            var ns = member.Name.NamespaceName != "" ? member.Name.Namespace : _Namespace;
+            var comment = member.Elements().FirstOrDefault(el => el.Name.LocalName == "Comment");
+            if (comment == null)
+            {
+                comment = new XElement(ns + "Comment");
+                member.AddFirst(comment);
+            }
+
+            var text = comment.Elements().FirstOrDefault(el => el.Name.LocalName == "MultiLanguageText" && el.Attribute("Lang") != null && el.Attribute("Lang").Value == "en-US");
+            if (text == null)
+            {
+                text = new XElement(ns + "MultiLanguageText", new XAttribute("Lang", "en-US"));
+                comment.Add(text);
+            }
+
+            if (text.Value != description)
+            {
+                text.Value = description;
+                Block.HasChanged = true;
+            }
+        }
         public XmlBlock Block;
         public string Name;
         public string Datatype;

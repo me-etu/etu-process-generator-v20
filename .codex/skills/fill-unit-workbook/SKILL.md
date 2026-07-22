@@ -1,10 +1,10 @@
 ---
 name: fill-unit-workbook
-description: Fill or prepare G-009 unit workbook rows from mixed unit source material. Use when Codex needs to extract unit Devices and IOBindings from TASKS-UNITS folders, tables, notes, screenshots, P&IDs, dbIO/db files, SCL fcReadIn/fcWriteOut examples, or other engineering inputs; ask clarifying questions before writing ambiguous workbook rows.
+description: Fill or prepare G-009 unit workbook rows or compact JSON handoff payloads from mixed unit source material. Use when Codex needs to extract unit Devices and IOBindings from TASKS-UNITS folders, tables, notes, screenshots, P&IDs, dbIO/db files, SCL fcReadIn/fcWriteOut examples, or other engineering inputs; ask clarifying questions before writing ambiguous workbook or JSON rows.
 ---
 # Fill Unit Workbook
 
-Use this skill to convert unit source evidence into reviewable workbook rows for `unit_template.xlsx` without guessing hidden engineering intent.
+Use this skill to convert unit source evidence into reviewable workbook rows for `unit_template.xlsx` or a compact JSON handoff without guessing hidden engineering intent.
 
 ## Baseline
 
@@ -33,9 +33,54 @@ Use all available local evidence before asking the user:
 6. Use `SignalOverride` only for custom/manual signals that cannot be derived from a generated device.
 7. Keep comments useful; future generation should copy `IOBindings.Comment` into generated dbIO variable comments where supported.
 
+## Output Mode
+
+Choose one output mode before writing:
+
+- Use `unit_template.xlsx` when the user wants an Excel workbook, expects human Excel review, or explicitly asks to fill the template.
+- Use compact JSON handoff when the user asks for JSON, Excel tooling is awkward, the source is large/repetitive, or the output is intended for another Codex session.
+
+For compact JSON handoff, write both files in the task/source folder:
+
+```text
+<slug>_unit_payload.compact.json
+README.md
+```
+
+Use this JSON shape:
+
+```json
+{
+  "schema": "g009-unit-payload-compact-v1",
+  "source": { "files": [], "sheets": [] },
+  "defaults": { "Digital": {}, "Valve": {}, "Motor": {}, "MotorControl": {}, "PidControl": {} },
+  "units": [],
+  "devices": [],
+  "extraConfigs": {},
+  "verification": {}
+}
+```
+
+Compact JSON rules:
+
+- Put repeated values in `defaults` by `DeviceType`; omit null/default fields from `devices`.
+- Use either short objects or row arrays, but document the exact row key/order in the README.
+- Keep `units` as explicit enabled unit objects for reviewability.
+- Put values outside current workbook columns, such as PID interface limits, under `extraConfigs` keyed by stable device identity.
+- Keep `IOBindings` out of compact JSON unless hardware evidence is actually relevant; document intentionally skipped hardware tags in the README.
+- Include `verification` counts for units, source rows, device types, generated PID rows, normalized names, and review notes.
+
+The README/key file must state:
+
+- Source files and sheets read.
+- Compact `devices` row format or object schema.
+- Defaults and assumptions applied.
+- How `extraConfigs` should be treated later.
+- Expected verification counts and any intentionally omitted evidence.
+
 ## Ambiguity Rules
 
-Ask the user before writing rows when any high-impact ambiguity remains:
+Ask the user before writing workbook rows or compact JSON when any high-impact ambiguity remains:
 
 - Device count, naming expansion, or tag normalization is uncertain.
 - A source signal could be either a generated device, interlock, panel command, custom status, or pure logic signal.
@@ -43,7 +88,7 @@ Ask the user before writing rows when any high-impact ambiguity remains:
 - A hardware tag exists but the matching generated device/signal role is uncertain.
 - A non-standard/manual signal needs `SignalOverride` and naming intent is unclear.
 
-Prefer a concise findings table plus explicit questions. Do not fill the workbook until the user confirms assumptions or asks you to proceed with marked review notes.
+Prefer a concise findings table plus explicit questions. Do not write the workbook or JSON until the user confirms assumptions or asks you to proceed with marked review notes.
 
 ## Output Shape
 
@@ -52,10 +97,11 @@ When reporting findings before editing:
 - List source files inspected.
 - Summarize confident `Devices` rows and uncertain candidates separately.
 - Summarize `IOBindings` candidates using `SignalRole + HardwareTag + Comment`, not derived dbIO paths.
-- List questions that block safe workbook entry.
+- List questions that block safe workbook or JSON entry.
 
 When editing later:
 
-- Update the workbook source generator if the schema changes; otherwise edit/regenerate the workbook consistently with the current template.
-- Verify workbook headers after changes.
+- For workbook mode, update the workbook source generator if the schema changes; otherwise edit/regenerate the workbook consistently with the current template.
+- For compact JSON mode, verify JSON parses and counts match `verification`.
+- Verify workbook headers after workbook changes.
 - Do not import to Google Sheets unless the user asks.

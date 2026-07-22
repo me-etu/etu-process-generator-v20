@@ -47,3 +47,6 @@ unit_template.xlsx
 
 # codex stuff
 create_unit_template_workbook.ps1
+
+#Specs
+Specs/

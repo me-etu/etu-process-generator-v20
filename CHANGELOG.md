@@ -2,6 +2,12 @@
 
 All notable project and generator changes should be recorded here.
 
+## 2026-07-22
+
+### Added
+
+- Applied TASKS-UNITS/Vacud Updates/vacud_unit_template_payload.json to Project.cs, adding the remaining 20 Vacud unit sections and 122 generated device calls through the current marker-tag generator path.
+
 ## 2026-07-01
 
 ### Fixed

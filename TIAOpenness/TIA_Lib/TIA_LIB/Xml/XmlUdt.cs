@@ -32,6 +32,12 @@ namespace TIA_LIB.Xml
         private static XElement BuildXml(string name, IEnumerable<XmlDataMember> members)
         {
             XNamespace intf = "http://www.siemens.com/automation/Openness/SW/Interface/v5";
+#if TIA_V21
+            // V21 Openness supports importing engineering versions V18 through V21, not V17.
+            const string engineeringVersion = "V21";
+#else
+            const string engineeringVersion = "V17";
+#endif
             string created = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
 
             var section = new XElement(intf + "Section", new XAttribute("Name", "None"));
@@ -40,17 +46,23 @@ namespace TIA_LIB.Xml
                 section.Add(member.ToXElement());
             }
 
+            var attributes = new XElement("AttributeList",
+                new XElement("Interface",
+                    new XElement(intf + "Sections", section)),
+                new XElement("Name", name));
+#if TIA_V21
+            // Mandatory since SimaticML V18; empty selects the PLC's global namespace.
+            attributes.Add(new XElement("Namespace"));
+#endif
+
             return new XElement("Document",
-                new XElement("Engineering", new XAttribute("version", "V17")),
+                new XElement("Engineering", new XAttribute("version", engineeringVersion)),
                 new XElement("DocumentInfo",
                     new XElement("Created", created),
                     new XElement("ExportSetting", "None")),
                 new XElement("SW.Types.PlcStruct",
                     new XAttribute("ID", "0"),
-                    new XElement("AttributeList",
-                        new XElement("Interface",
-                            new XElement(intf + "Sections", section)),
-                        new XElement("Name", name)),
+                    attributes,
                     new XElement("ObjectList",
                         BuildMultilingualText("1", "2", "Comment"),
                         BuildMultilingualText("3", "4", "Title"))));

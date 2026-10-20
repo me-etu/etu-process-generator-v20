@@ -149,7 +149,11 @@ namespace TIA_LIB.Xml
 
             if (member == null)
             {
-                member = new XElement("Member");
+                XNamespace memberNamespace = XNamespace.None;
+#if TIA_V21
+                memberNamespace = _Namespace;
+#endif
+                member = new XElement(memberNamespace + "Member");
                 member.SetAttributeValue("Name", name);
                 member.SetAttributeValue("Datatype", datatype);
                 member.SetAttributeValue("Accessibility", "Public");

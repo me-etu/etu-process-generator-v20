@@ -122,6 +122,18 @@
     <Compile Include="Xml\XmlPlant.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Xml\EmptyUnit.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Xml\EmptyOperation.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Xml\EmptyPhase.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Xml\EmptyNetworkWithOutCall.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Xml\EmptyDatablock.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

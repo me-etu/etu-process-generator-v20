@@ -36,7 +36,6 @@ namespace TIA_LIB.Devices
             int indexInstance = 0;
             var calledBlockName = "fbMonDi";
             var inputReference = SignalStagingInventory.InputReference("IN_" + tagName);
-            var qualityReference = SignalStagingInventory.InputReference("IN_" + tagName + "_QB");
 
             var network = unit.FindNetwork(tagName);
 
@@ -69,7 +68,7 @@ namespace TIA_LIB.Devices
 
                 }
 
-                network = unit.GetNetwork(tagName, networkComment);
+                network = unit.GetNetwork(tagName);
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
 
                 if (countInstance != 0)
@@ -88,7 +87,6 @@ namespace TIA_LIB.Devices
                         network.SetParameter(instance, "CFG", "Input", "typeDigitalCfg", "cfgData|" + unit.Name + "_" + tagName + "_Instance" + (indexInstance), true);;
                         network.SetParameter(instance, "RESET", "Input", "Bool", "RESET_CYCL", true);
                         network.SetParameter(instance, "IN", "Input", "Bool", inputReference.Value, inputReference.IsGlobal, false, neg);
-                        network.SetParameter(instance, "ERR_EXT", "Input", "Bool", qualityReference.Value, qualityReference.IsGlobal, false, true);
 
                         if (countInstance > 1)
                         {
@@ -168,7 +166,6 @@ namespace TIA_LIB.Devices
 
             if (isNewNetwork)
             {
-                if (qualityBit) network.SetParameter(call, "ERR_EXT", "Input", "Bool", qualityReference.Value, qualityReference.IsGlobal, false, true);
                 network.SetParameter(call, "IN", "Input", "Bool", inputReference.Value, inputReference.IsGlobal, false, neg);
                 network.SetParameter(call, "CFG", "Input", "typeDigitalCfg", "cfgData|" + unit.Name + "_" + tagName, true);
             }
@@ -279,15 +276,93 @@ namespace TIA_LIB.Devices
                 {
                     instance = network.FindCall(calledBlockName, "FB", "LocalVariable", tagName + "_Instance" + (indexInstance));
                     //network.SetParameter(instance, "IN", "Input", "Bool", "IN_" + tagName, true, false, true);
-                    //network.SetParameter(instance, "ERR_EXT", "Input", "Bool", qualityReference.Value, qualityReference.IsGlobal, false, true);
                     //network.SetParameter(instance, "RESET", "Input", "Bool", "RESET_CYCL", true);
                 }
             }
 
 
             Console.WriteLine("Block was found " + unit.Name + "." + tagName);
+            SetQualityBit(qualityBit);
+            // Keep the legacy parameter name for named constructor callers.
+            ConfigureInstanceDescription(calledBlockName, countInstance, networkComment);
         }
         
+        internal void SetQualityBit(bool enabled)
+        {
+            var network = Unit.FindNetwork(TagName);
+            var reference = SignalStagingInventory.InputReference("IN_" + TagName + "_QB");
+            var markerPath = "IN_" + TagName + "_QB";
+            var localPath = "hwIN|" + SignalStagingInventory.SafeMemberName(markerPath);
+            for (int index = 0; index <= _CountInstance; index++)
+            {
+                var name = index == 0 ? TagName : TagName + "_Instance" + index;
+                var call = network.FindCall("fbMonDi", "FB", "LocalVariable", name);
+                if (call == null) continue;
+                var endpoints = network.Xml.Descendants().Where(e => e.Name.LocalName == "NameCon" &&
+                    (string)e.Attribute("UId") == call.UId.ToString() && (string)e.Attribute("Name") == "ERR_EXT").ToList();
+                bool connected = false;
+                foreach (var endpoint in endpoints)
+                {
+                    var wireXml = endpoint.Parent;
+                    var ident = wireXml.Elements().FirstOrDefault(e => e.Name.LocalName == "IdentCon");
+                    var access = ident == null ? null : network.Parts.Elements().FirstOrDefault(e =>
+                        (string)e.Attribute("UId") == (string)ident.Attribute("UId"));
+                    var path = access == null ? "" : string.Join("|", access.Descendants()
+                        .Where(e => e.Name.LocalName == "Component").Select(e => (string)e.Attribute("Name")));
+                    if (enabled && endpoints.Count == 1 && path == reference.Value &&
+                        (string)access.Attribute("Scope") == (reference.IsGlobal ? "GlobalVariable" : "LocalVariable"))
+                    {
+                        connected = true;
+                        break;
+                    }
+                    // Disabling QB removes only this device's generated quality connection.
+                    if (!enabled && path != markerPath && path != localPath) continue;
+                    endpoint.Remove();
+                    XmlWire wire;
+                    if (network.Wires.TryGetValue((int)wireXml.Attribute("UId"), out wire))
+                        wire.Pins.RemoveAll(p => p.Part.UId == call.UId && p.Name == "ERR_EXT");
+                    if (!wireXml.Elements().Any(e => e.Name.LocalName == "NameCon"))
+                    {
+                        network.Wires.Remove((int)wireXml.Attribute("UId"));
+                        wireXml.Remove();
+                    }
+                    if (access != null && !network.Xml.Descendants().Any(e => e.Name.LocalName == "IdentCon" &&
+                        (string)e.Attribute("UId") == (string)access.Attribute("UId")))
+                    {
+                        network.Access.Remove((int)access.Attribute("UId"));
+                        access.Remove();
+                    }
+                    network.UIdIdentCon.Remove(call.UId + "|ERR_EXT");
+                    network.OpenConWires.Remove(call.UId + "|ERR_EXT");
+                    Unit.HasChanged = true;
+                }
+                if (enabled && !connected)
+                    network.SetParameter(call, "ERR_EXT", "Input", "Bool", reference.Value, reference.IsGlobal, false, true);
+                // Negation belongs to the quality connection, not to an unconnected default input.
+                bool hasConnection = network.Xml.Descendants().Any(e => e.Name.LocalName == "NameCon" &&
+                    (string)e.Attribute("UId") == call.UId.ToString() && (string)e.Attribute("Name") == "ERR_EXT");
+                var negations = call.Xml.Elements().Where(e => e.Name.LocalName == "Negated" &&
+                    (string)e.Attribute("Name") == "ERR_EXT").ToList();
+                if (enabled && negations.Count == 0)
+                {
+                    call.GetParameter("ERR_EXT", "Input", "Bool").SetNegations();
+                    Unit.HasChanged = true;
+                }
+                if (!enabled && !hasConnection)
+                {
+                    foreach (var negation in negations) { negation.Remove(); Unit.HasChanged = true; }
+                    call.Negations.RemoveAll(n => n == "ERR_EXT");
+                    XmlParameter parameter;
+                    if (call.Parameters.TryGetValue("ERR_EXT", out parameter))
+                    {
+                        parameter.Xml.Remove();
+                        call.Parameters.Remove("ERR_EXT");
+                        Unit.HasChanged = true;
+                    }
+                }
+            }
+        }
+
         public override void SetFaceplateProperties()
         {
 

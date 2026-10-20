@@ -215,6 +215,16 @@ namespace TIA_LIB.Xml
             }
         }
 
+        internal string GetCommentCulture()
+        {
+            var cultures = _AllowedCultures != null && _AllowedCultures.Count > 0
+                ? _AllowedCultures : _ProjectCultures;
+            if (cultures.Count == 0) return "en-US"; // Same fallback as multilingual pruning.
+            return cultures.FirstOrDefault(c => string.Equals(c, "en-US", StringComparison.OrdinalIgnoreCase))
+                ?? cultures.FirstOrDefault(c => string.Equals(c, "de-DE", StringComparison.OrdinalIgnoreCase))
+                ?? cultures.OrderBy(c => c, StringComparer.Ordinal).First();
+        }
+
         private void PruneUnsupportedMultilingualTextItems()
         {
             if (_AllowedCultures == null || _AllowedCultures.Count == 0)

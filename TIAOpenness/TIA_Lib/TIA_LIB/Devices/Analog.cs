@@ -75,7 +75,7 @@ namespace TIA_LIB.Devices
 
                 }
 
-                network = unit.GetNetwork(tagName, networkComment);
+                network = unit.GetNetwork(tagName);
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
 
                 if (countInstance != 0)
@@ -379,6 +379,8 @@ namespace TIA_LIB.Devices
 
             LimValMin = limValueMin;
             LimValMax = limValueMax;
+            // Keep the legacy parameter name for named constructor callers.
+            ConfigureInstanceDescription(calledBlockName, countInstance, networkComment);
         }
         public override void SetFaceplateProperties()
         {

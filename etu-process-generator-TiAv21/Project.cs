@@ -33,11 +33,11 @@ namespace EtuProcessGeneratorTiaV21
 
              
                    #region Unit BV130_B10_20
-                AddAnalog("BV130_B10_20", "LC-B13", 2, 0, "%", 0, 0, 100); // Level radar sensor BV130 B13
-                AddDigital("BV130_B10_20", "LSA-B23", 2, 0, 0, false, false); // Overfill protection BV130 B23
-                AddDigital("BV130_B10_20", "MS-G11", 1, 0, 0, false, false); // Maintenance switch BV130 G11
-                AddValve("BV130_B10_20", "Q11", 1, 0, 0, false, false, false, false, false, -1, -1); // Open valve BV140 Q11
-                AddMotor("BV130_B10_20", "G11", 5, 0, 0, false, false, -1, -1); // Pump BV130 G11 Run
+                AddAnalog("BV130_B10_20", "LC-B13", 2, 3, "%", 0, 0, 100); // Level radar sensor BV130 B13
+                AddDigital("BV130_B10_20", "LSA-B23", 2, 0, 1, true, false); // Overfill protection BV130 B23
+                AddDigital("BV130_B10_20", "MS-G11", 1, 0, 2, false, false); // Maintenance switch BV130 G11
+                AddValve("BV130_B10_20", "Q11", 1, 4, 0, false, false, false, true, false, -1, -1); // Open valve BV140 Q11
+                AddMotor("BV130_B10_20", "G11", 5, 2, 1, false, false, -1, -1); // Pump BV130 G11 Run
             #endregion
 #if false
                 // units to skip generate

@@ -65,7 +65,7 @@ namespace TIA_LIB.Devices
                     }
                 }
 
-                network = unit.GetNetwork(tagName, networkComment);
+                network = unit.GetNetwork(tagName);
 
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
                 //network.SetParameter(call, "en", "Input", andOut);
@@ -161,8 +161,12 @@ namespace TIA_LIB.Devices
 
                     network.SetParameter(call, "HAS_LOCK", "Input", "Bool", "True");
 
-                    network.SetParameter(call, "FB_ON", "Input", "Bool", fbOnReference.Value, fbOnReference.IsGlobal); //Input verknüpfen mit FB_ON Variable
-                    network.SetParameter(call, "QCMD_ON", "Output", "Bool", ctrlReference.Value, ctrlReference.IsGlobal); //Output verknüpfen mit CTRL Variable
+                    // Generated DB/UDT mode wires these once in the common staging path below.
+                    if (PlcProject.StagingMode != SignalStagingMode.GeneratedDbUdt)
+                    {
+                        network.SetParameter(call, "FB_ON", "Input", "Bool", fbOnReference.Value, fbOnReference.IsGlobal);
+                        network.SetParameter(call, "QCMD_ON", "Output", "Bool", ctrlReference.Value, ctrlReference.IsGlobal);
+                    }
 
                     if ((interlockCount != 0 || SafeInterlockCount != 0) && hasLock == null)
                     {
@@ -296,6 +300,8 @@ namespace TIA_LIB.Devices
             }
 
                 Console.WriteLine("Block was found " + unit.Name + "." + tagName);
+            // Keep the legacy parameter name for named constructor callers.
+            ConfigureInstanceDescription(calledBlockName, 0, networkComment, interlockCount + SafeInterlockCount);
         }
         public override void SetFaceplateProperties()
         {

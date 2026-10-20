@@ -53,9 +53,17 @@ This connects to an open or newly started TIA Portal instance and modifies the o
 
 ## Recent Generator Behavior Notes
 
+- `AddDigital(..., qualityBit: true)` creates the QB input and connects it, inverted, to `ERR_EXT` on the main monitor and all configured extra monitors. With `false`, it creates no QB input/tag and removes this device's old generated QB connections during regeneration; unrelated wiring is preserved. Existing PLC tags are not deleted by this correction.
+
 - Unified HMI detection in `SiemensPortal.cs` is capability-based: it recursively scans device items for `HmiSoftware` and no longer requires `System:Device.PC` or `IPC_`.
 - Plant generation now preserves existing `Plant` FB networks and unit calls. It adds a new unit-call network only when the current unit is not already called anywhere in `Plant`.
 - `Plant` preservation is intentional so legacy/manual networks like `BV160-B110` remain intact while adding new units such as `BL170`.
+
+Trailing `//` descriptions on `AddAnalog`, `AddDigital`, `AddValve`, `AddValveControl`, `AddMotor`, `AddMotorControl`, and `AddPidControl` calls are written to the called FB instance's direct `Static` declaration comment. For example, `// Level radar sensor BV130 B13` describes instance `LC-B13` of `fbMonAn`. Analog/digital monitor `_InstanceN` declarations receive the same description. For `AddValve`, `AddValveControl`, `AddMotor` (`fbMotS`), and `AddMotorControl` (`fbMotAn`), every configured ordinary and safe `_InterlockN` declaration (`fbIntlck7`) also receives the exact parent description. Out-of-range helpers and unrelated manual instances retain their own comments. Cached calls use the original configured target counts; changing counts does not reconcile topology. This works for new, existing, and cached devices in both staging modes, using the selected app's caller source file.
+
+Empty or unavailable source descriptions preserve existing comments. Nonempty text replaces only the supported target language (en-US, otherwise de-DE, otherwise the first supported culture); other translations and nested comments, including the unit wrapper's `FUNC_TEXT`, remain intact. Source descriptions no longer populate FBD network comments. Existing network comments are preserved. Instance descriptions are independent of network formatting; SCL generation and regions remain future work.
+
+Run `./Tests/Verify-DeviceInstanceComments.ps1` after building V21 for offline device routing, declaration/comment preservation, and Siemens interface-schema checks. The fixture bypasses side-effecting constructors and uses in-memory DB caches with no live Portal session. Static-column display and live repeat generation still require a separately authorized disposable-project test.
 
 ## Reference Files
 

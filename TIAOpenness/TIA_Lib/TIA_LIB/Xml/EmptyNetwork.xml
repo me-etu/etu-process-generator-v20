@@ -1,6 +1,11 @@
 ﻿<SW.Blocks.CompileUnit ID="8" CompositionName="CompileUnits">
   <AttributeList>
-	  <NetworkSource />
+	  <NetworkSource>
+      <FlgNet xmlns="http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4">
+        <Parts />
+        <Wires />
+      </FlgNet>
+    </NetworkSource>
 	  <ProgrammingLanguage>FBD</ProgrammingLanguage>
   </AttributeList>
   <ObjectList>

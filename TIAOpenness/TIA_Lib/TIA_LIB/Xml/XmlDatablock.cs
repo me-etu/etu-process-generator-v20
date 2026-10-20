@@ -37,7 +37,7 @@ namespace TIA_LIB.Xml
 
             if (Xml == null)
             {
-                Xml = XElement.Load("Xml/EmptyDatablock.xml");
+                Xml = LoadEmptyTemplate();
                 Name = name;
             }
 
@@ -47,6 +47,21 @@ namespace TIA_LIB.Xml
             {
                 new Xml.XmlGlobalInstance(this, member);
             }
+        }
+
+        private static XElement LoadEmptyTemplate()
+        {
+            var xml = XElement.Load("Xml/EmptyDatablock.xml");
+#if TIA_V21
+            // Only the new-DB fallback is migrated; preserve existing exported DB content.
+            xml.Element("Engineering").SetAttributeValue("version", "V21");
+            var attributes = xml.Element("SW.Blocks.GlobalDB").Element("AttributeList");
+            if (attributes.Element("Namespace") == null)
+            {
+                attributes.Element("Name").AddAfterSelf(new XElement("Namespace"));
+            }
+#endif
+            return xml;
         }
 
         public void GetValue(string name, string datatype)

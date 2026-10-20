@@ -1,6 +1,6 @@
 # Generator Knowledge Base
 
-Canonical knowledge base for the `etu-process-generator-TiAv20` TIA Portal generator.
+Canonical knowledge base for the V20 and V21 ETU TIA Portal generators.
 
 This file supersedes:
 
@@ -14,10 +14,11 @@ Use this file first when changing `Project.cs`, preparing generator snippets, or
 
 This project generates TIA Portal PLC function blocks, PLC tags, and Unified HMI-related objects from a declarative C# project definition.
 
-The active generator script is:
+The version-specific generator scripts are:
 
 ```text
 etu-process-generator-TiAv20\Project.cs
+etu-process-generator-TiAv21\Project.cs
 ```
 
 `Project.cs` is best understood as a domain-specific plant description file, not ordinary business logic. Calls such as `AddDigital(...)`, `AddAnalog(...)`, `AddValve(...)`, `AddTp(...)`, and `AddPH(...)` build an internal XML-backed plant model. Later lifecycle calls create PLC tags, upload XML into TIA Portal, run SiVArc, and adjust Unified HMI objects.
@@ -34,17 +35,20 @@ When something fails in `Project.cs`, the root cause is often in `TIA_LIB`, gene
 
 ## Repository And Runtime Architecture
 
-Current application name:
+Application names:
 
 ```text
 etu-process-generator-TiAv20
+etu-process-generator-TiAv21
 ```
 
-Current solution and app project:
+Version-specific solutions and app projects:
 
 ```text
 etu-process-generator-TiAv20.sln
 etu-process-generator-TiAv20\etu-process-generator-TiAv20.csproj
+etu-process-generator-TiAv21.sln
+etu-process-generator-TiAv21\etu-process-generator-TiAv21.csproj
 ```
 
 Repo-local `TIA_LIB` source of truth:
@@ -52,6 +56,18 @@ Repo-local `TIA_LIB` source of truth:
 ```text
 TIAOpenness\TIA_Lib\TIA_LIB
 ```
+
+V20 references `TIA_LIB.csproj`; V21 references the adjacent `TIA_LIB.V21.csproj`. These share implementation and existing assembly metadata, namespace, and assembly name (`TIA_LIB`). Keep their explicit source/template item lists aligned. V21 library outputs use `bin/V21/<Platform>/<Configuration>/` and intermediates use `obj/V21/<Platform>/<Configuration>/`, configured before `Microsoft.Common.props` so reference caches and generated framework attributes cannot overlap V20.
+
+Both retain .NET Framework 4.8 and C# 7.3 for x64. Build the selected app project or solution with `/p:Configuration=Debug /p:Platform=x64`; see README for full commands. V21 accepts `TiaV21ApiDirectory`, defaulting to `$(ProgramFiles)/Siemens/Automation/Portal V21/PublicAPI/V21/net48`, and explicitly fails if a required API file is missing. It references Base, Step7, WinCCUnified, Sivarc, and (in the library) WinCC for the existing `Hmi.Communication` import, using V21 identities rather than V20/V18 reference identities. No shared-source API adaptation was necessary for compilation.
+
+V21 local Siemens help (`TIAPortalOpennessenUS.zip`, topic `37231359755/37752246795.htm`) explicitly rejects Copy Local and supports `App.config` assembly bindings. V21 references use `Private=False`; before `PrepareForBuild`, the app copies its config to an intermediate file and fills `codeBase` paths from the selected API directory. The deployed executable config must stay beside the executable. This resolves paths before any Siemens type loads without a custom resolver or entry-point changes. Runtime dependency initialization still requires a correctly installed Portal V21 and remains untested.
+
+The V21 library now defines `TIA_V21` in all configurations. `XmlUdt.BuildXml` uses it to emit `<Engineering version="V21" />` for generated staging UDTs, preserving `V17` for the V20 project. Installed V21 help topic `37231359755/59943517835.htm` lists V18–V21 as supported SimaticML import versions. A failed option-2 run left `hwIN_BV130_B10_20.xml` with a V17 header; that incompatible header is fixed, but the exact option-2 exception/runtime retry is pending. In-memory construction from the rebuilt V21 DLL verifies the V21 header without connecting to Portal. The user reports marker-memory generation now completes. Their active V21 scope was subsequently changed to `BV130_B10_20`; preserve the current source rather than restoring the initial migration baseline.
+
+Use the selected app's output as runtime working directory, e.g. `etu-process-generator-TiAv21/bin/x64/Debug/`, because existing library exports/template reads use relative paths. Output isolation alone does not isolate a shared working directory. Project content copies now include all ten XML templates; this does not certify all project-specific runtime templates or device libraries are present.
+
+The 2026-10-20 V21 app rebuild and solution build passed, with source parity and assembly/template/path checks. No Portal connection or XML import was exercised. V20 compilation is blocked by the missing standard V20 installation; its source/project/reference settings remain unchanged. Runtime validation needs explicit authorization and a disposable V21 TIA project copy.
 
 An older machine-level copy may exist at:
 
@@ -66,7 +82,7 @@ If Visual Studio reports missing names such as `TIA_LIB`, `PlcProject`, `AddDigi
 Recommended reference check:
 
 1. Open the exact solution being run.
-2. Confirm the app references repo-local `TIA_LIB.csproj`, not an old DLL or external folder.
+2. Confirm the app references repo-local `TIA_LIB.csproj` (V20) or `TIA_LIB.V21.csproj` (V21), not an old DLL or external folder.
 3. Clean `bin` and `obj` when stale design-time errors persist.
 4. Build `TIA_LIB`.
 5. Build the app project in `Debug|x64`.
@@ -81,7 +97,7 @@ Recommended reference check:
 
 That means `new Project()` connects to or uses TIA Portal and starts generation-related work.
 
-The current generation flow in `Project.cs` is:
+Both app definitions initially select `BV260-B210`, preserving other units inside `#if false`. Their current generation flow is:
 
 ```csharp
 CreateTags();
@@ -89,14 +105,14 @@ CreateTags();
 Upload();
 
 Portal.CheckTags();
-GenerateSiVarc();
+// GenerateSiVarc();
 
 Portal.DeleteRenamedTags();
 
-if (Portal.CheckTags())
-{
-    GenerateSiVarc();
-}
+// if (Portal.CheckTags())
+// {
+//     GenerateSiVarc();
+// }
 
 UserInterface();
 
@@ -108,9 +124,9 @@ Interpretation:
 1. Build PLC tag definitions from generated devices.
 2. Upload generated XML-backed PLC objects.
 3. Check HMI/PLC tag mismatches.
-4. Run SiVArc.
+4. SiVArc generation is currently disabled.
 5. Delete HMI tags ending `_Renamed`.
-6. Re-check and optionally rerun SiVArc.
+6. The optional tag re-check/SiVArc rerun is currently disabled.
 7. Apply final Unified HMI property adjustments.
 8. Dispose the TIA Portal connection.
 
@@ -625,6 +641,8 @@ Fix the first `TIA_LIB` compile error, check project references, clean `bin`/`ob
 
 ### NullReferenceException In XmlCall / XmlNetwork
 
+Confirmed on 2026-10-20 after restoring `EmptyUnit.xml`: the next run failed at `XmlCall.cs:49` (`Network.Parts.AddFirst(Xml)`). Repo `EmptyNetwork.xml` had only `<NetworkSource />`; it was well-formed XML but lacked the FlgNet/v4 `Parts` and `Wires` containers required by `XmlNetwork`. Restored that structure from the user-provided original library source. An offline harness using the actual network/call/wire classes and a non-Portal block stub reproduced the old failure and passed call/access/wire construction and serialization after the template fix. Verified both `bin/Debug` and `bin/x64/Debug`; no Portal run or import acceptance is implied.
+
 Likely cause:
 
 - empty network template lacks required containers
@@ -652,6 +670,12 @@ http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4
 
 ### TIA Import XML Invalid
 
+For the V21 generated-staging UDT error `Missing 'Namespace' identifier attribute from the '0' object`, the required identifier is `<AttributeList><Namespace /></AttributeList>` on `SW.Types.PlcStruct`, not an `xmlns` attribute on the document. The empty value selects the global PLC namespace. Installed help topics `183387162763.htm` and `159239377803.htm` document the V18+ requirement and UDT example. `XmlUdt` now emits it under `TIA_V21`.
+
+A separate defect in generated staging interfaces placed `Member`, `Comment`, and `MultiLanguageText` outside the interface/v5 XML namespace. The installed `SW.InterfaceSections_v5.xsd` rejects those members. V21 `XmlDataMember.ToXElement` (including recursive dbIO structs) and `XmlBlock.GetInterfaceMember` now emit qualified elements; V20 behavior is preserved by the build constant. `Tests/Verify-V21StagingXml.ps1` checks both UDT directions, comments, nested DB members, and idempotent unit interface additions against the installed XSD using the rebuilt library, without invoking side-effecting constructors or Upload. Both Debug outputs pass; runtime import compatibility still needs a user test.
+
+The subsequent option-2 run passed UDT import and stopped at `XmlDatablock.Upload`: `The engineering version 'V17' ... is not supported.` Retained `dbIO.xml` confirmed the DB fallback still inherited the old header from `EmptyDatablock.xml`. `XmlDatablock.LoadEmptyTemplate` now sets V21 engineering metadata and inserts an empty global Namespace only for the V21 new-DB fallback. XML exported from existing DBs bypasses this loader, and V20 uses the original template unchanged. The offline test now invokes this pure loader using the deployed template, adds/replaces the actual staged unit with `SetMember`, and verifies complete DB version/identifier plus interface XSD. Merely checking nested member XML is insufficient to catch document-header incompatibilities.
+
 Observed exception:
 
 ```text
@@ -677,6 +701,10 @@ Important detail:
 Use `instanceCount = 0` only as a diagnostic workaround, because it changes generated behavior.
 
 ### Missing EmptyUnit.xml
+
+Confirmed during the V21 runtime test on 2026-10-20: `XmlBlock` creates the unit's TIA folder before loading `Xml/EmptyUnit.xml`, so this exception leaves an empty unit folder. The original project declared only six content files; successful builds and checks of those declarations missed four source-required templates.
+
+Recovered `EmptyUnit.xml`, `EmptyOperation.xml`, `EmptyPhase.xml`, and `EmptyNetworkWithOutCall.xml` unchanged from the user-provided `\\tsclient\D\Software\UnifiedSprechstunde15\UnifiedSprechstunde15\bin\x64\Debug\Xml`. Both repo-local library project files now deploy all ten templates. Check template paths referenced by source as well as declared content; verify the actual configuration output (the reported run used `bin/Debug`, not `bin/x64/Debug`). XML parsing and matching template hashes were checked for both V21 Debug outputs. Runtime import compatibility still requires a separate test.
 
 Observed exception:
 

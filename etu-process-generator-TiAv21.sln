@@ -1,0 +1,41 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.7.11903.348 stable
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "etu-process-generator-TiAv21", "etu-process-generator-TiAv21\etu-process-generator-TiAv21.csproj", "{42739844-F979-44CE-90B2-4AC797E1AB3C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TIA_LIB.V21", "TIAOpenness\TIA_Lib\TIA_LIB\TIA_LIB.V21.csproj", "{932F5775-1FDD-4CC0-B987-7CFAFAD03F48}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{42739844-F979-44CE-90B2-4AC797E1AB3C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{42739844-F979-44CE-90B2-4AC797E1AB3C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{42739844-F979-44CE-90B2-4AC797E1AB3C}.Debug|x64.ActiveCfg = Debug|x64
+		{42739844-F979-44CE-90B2-4AC797E1AB3C}.Debug|x64.Build.0 = Debug|x64
+		{42739844-F979-44CE-90B2-4AC797E1AB3C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{42739844-F979-44CE-90B2-4AC797E1AB3C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{42739844-F979-44CE-90B2-4AC797E1AB3C}.Release|x64.ActiveCfg = Release|x64
+		{42739844-F979-44CE-90B2-4AC797E1AB3C}.Release|x64.Build.0 = Release|x64
+		{932F5775-1FDD-4CC0-B987-7CFAFAD03F48}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{932F5775-1FDD-4CC0-B987-7CFAFAD03F48}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{932F5775-1FDD-4CC0-B987-7CFAFAD03F48}.Debug|x64.ActiveCfg = Debug|x64
+		{932F5775-1FDD-4CC0-B987-7CFAFAD03F48}.Debug|x64.Build.0 = Debug|x64
+		{932F5775-1FDD-4CC0-B987-7CFAFAD03F48}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{932F5775-1FDD-4CC0-B987-7CFAFAD03F48}.Release|Any CPU.Build.0 = Release|Any CPU
+		{932F5775-1FDD-4CC0-B987-7CFAFAD03F48}.Release|x64.ActiveCfg = Release|x64
+		{932F5775-1FDD-4CC0-B987-7CFAFAD03F48}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {017A750F-BCEE-46C0-82E4-FC979F45BD60}
+	EndGlobalSection
+EndGlobal

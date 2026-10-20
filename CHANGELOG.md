@@ -2,6 +2,29 @@
 
 All notable project and generator changes should be recorded here.
 
+## 2026-10-20
+
+### Fixed
+
+- Updated the V21 new-DB template fallback to emit engineering version V21 and the required empty global Namespace. After the UDT fixes, generated staging reached dbIO import but failed because its fallback still used V17. Existing exported DBs and V20 fallback XML remain unchanged. Expanded the offline staging regression check to exercise the actual DB loader and SetMember path, including complete DB version/identifier checks and interface-schema validation; both Debug outputs pass.
+- Added the required empty global `Namespace` identifier to V21 generated UDTs after the first staging UDT import reported it missing. Corrected V21 staging member/comment namespaces in UDTs, nested dbIO members, and unit interfaces; Siemens' installed interface XSD rejects the former unqualified members. Added `Tests/Verify-V21StagingXml.ps1` for offline schema and identifier checks. Both V21 Debug outputs pass; V20 serialization stays guarded and unchanged. Runtime import remains to be retested.
+- V21 generated DB/UDT staging now emits UDT XML with engineering version `V21`, rather than hard-coded `V17`; installed V21 help lists V18–V21 as supported import versions. This is guarded by `TIA_V21` in the V21 library project, preserving the V20 XML version. Both V21 Debug builds and in-memory UDT version checks pass; the user's option-2 exception and runtime retry are still needed to confirm its complete failure path.
+- Restored the missing FlgNet/v4 `Parts` and `Wires` containers in `EmptyNetwork.xml`, matching the user-provided original library source. The incomplete template caused `XmlCall` to throw `NullReferenceException` when creating the first unit call. Reproduced the failure offline and verified call/access/wire construction and serialization after the fix; both V21 Debug outputs were rebuilt and checked.
+- Restored original `EmptyUnit.xml`, `EmptyOperation.xml`, `EmptyPhase.xml`, and `EmptyNetworkWithOutCall.xml` templates from the user-provided original app output. Both library projects now copy all ten templates. Missing `EmptyUnit.xml` caused generation to stop after creating an empty unit folder.
+- Verified V21 `Debug|x64` rebuild and `Debug|AnyCPU` build, template XML parsing, and matching output hashes without running the generator. The external original files were read only.
+
+### Added
+
+- Added the separate `etu-process-generator-TiAv21` app and solution, with distinct identities, preserving the V20 app/solution and current `BV260-B210` definitions, staging modes, and disabled SiVArc generation.
+- Added `TIA_LIB.V21.csproj`, sharing existing library source and template lists while isolating V21 output/intermediate directories and referencing installed modular V21 .NET Framework 4.8 APIs. No shared-source API changes were needed.
+- Added configurable `TiaV21ApiDirectory`, explicit missing-API build errors, and generated V21 runtime configuration bindings with Siemens Copy Local disabled according to installed V21 help.
+
+### Validation
+
+- V21 `Debug|x64` app rebuild and solution build passed; reference identities, config paths, source parity, artifact isolation, and six template copies checked. Missing V21 API directory fails explicitly.
+- V20 regression compilation is blocked by the missing standard V20 installation. V21 runtime loading, attachment, XML imports, staging modes, and HMI behavior remain untested; no generator execution or TIA project conversion was performed.
+- Restored existing pinned NuGet packages with user authorization. Restore reports moderate vulnerability advisories for existing BouncyCastle 1.8.9; versions remain unchanged.
+
 ## 2026-07-22
 
 ### Added

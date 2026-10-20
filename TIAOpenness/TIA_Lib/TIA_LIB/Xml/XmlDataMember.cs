@@ -19,14 +19,18 @@ namespace TIA_LIB.Xml
 
         public XElement ToXElement()
         {
-            var member = new XElement("Member");
+            XNamespace memberNamespace = XNamespace.None;
+#if TIA_V21
+            memberNamespace = "http://www.siemens.com/automation/Openness/SW/Interface/v5";
+#endif
+            var member = new XElement(memberNamespace + "Member");
             member.SetAttributeValue("Name", Name);
             member.SetAttributeValue("Datatype", Datatype);
 
             if (!string.IsNullOrWhiteSpace(Comment))
             {
-                member.Add(new XElement("Comment",
-                    new XElement("MultiLanguageText",
+                member.Add(new XElement(memberNamespace + "Comment",
+                    new XElement(memberNamespace + "MultiLanguageText",
                         new XAttribute("Lang", "en-US"),
                         Comment)));
             }

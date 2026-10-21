@@ -16,6 +16,7 @@ Each version has its own declarative `Project.cs`: `etu-process-generator-TiAv20
 - `AddTp(...)`
 - `AddRp(...)`
 
+
 Both initially select unit `BV260-B210`; other unit definitions remain inside `#if false`. SiVArc generation remains commented out. Future plant-definition edits must target the intended app version.
 
 ## Important Runtime Dependency

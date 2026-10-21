@@ -58,6 +58,26 @@ foreach ($module in 'Base', 'Step7') {
 
 # Exercise the exact DB fallback loader used by the constructor, using deployed templates.
 $outputDirectory = Split-Path -Parent (Resolve-Path -LiteralPath $LibraryPath).Path
+# Exercise fresh FB template loading without creating a Portal session or block.
+$fbLoader = [TIA_LIB.Xml.XmlBlock].GetMethod('LoadEmptyTemplate', [Reflection.BindingFlags]'Static,NonPublic')
+foreach ($templateName in 'EmptyBlock.xml', 'EmptyOperation.xml', 'EmptyPhase.xml', 'EmptyUnit.xml') {
+    $templatePath = Join-Path $outputDirectory "Xml/$templateName"
+    $original = [Xml.Linq.XElement]::Load($templatePath)
+    $actual = $fbLoader.Invoke($null, [object[]]@([string]$templatePath))
+    $expected = [Xml.Linq.XElement]::new($original)
+    $expected.Element('Engineering').SetAttributeValue('version', 'V21')
+    $attributes = $expected.Element('SW.Blocks.FB').Element('AttributeList')
+    if ($null -eq $attributes.Element('Namespace')) {
+        $attributes.Element('Name').AddAfterSelf([Xml.Linq.XElement]::new([Xml.Linq.XName]::Get('Namespace')))
+    }
+    if (-not [Xml.Linq.XNode]::DeepEquals($expected, $actual)) { throw "Unexpected FB fallback changes: $templateName" }
+    [xml]$fbDocument = $actual.ToString()
+    if ($fbDocument.Document.Engineering.version -ne 'V21' -or
+        $null -eq $fbDocument.Document.'SW.Blocks.FB'.AttributeList.SelectSingleNode('Namespace')) {
+        throw "Invalid V21 FB identifiers: $templateName"
+    }
+    Write-Output "PASS: $templateName fallback changes only V21 version/global Namespace metadata."
+}
 $previousDirectory = [IO.Directory]::GetCurrentDirectory()
 try {
     [IO.Directory]::SetCurrentDirectory($outputDirectory)

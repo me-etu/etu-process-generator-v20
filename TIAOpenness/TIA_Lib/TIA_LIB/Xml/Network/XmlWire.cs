@@ -15,7 +15,7 @@ namespace TIA_LIB.Xml.Network
 
             UId = ++Network.MaxUId;
 
-            Xml = new XElement("Wire");
+            Xml = new XElement(Network.ElementName("Wire"));
 
             Xml.SetAttributeValue("UId", UId);
 
@@ -106,7 +106,7 @@ namespace TIA_LIB.Xml.Network
                 _OpenCon = null;
             }
 
-            var identCon = new XElement("IdentCon");
+            var identCon = new XElement(Network.ElementName("IdentCon"));
             identCon.SetAttributeValue("UId", value.UId);
             Xml.Add(identCon);
         }
@@ -116,7 +116,7 @@ namespace TIA_LIB.Xml.Network
             if (!Contains(pin))
             {
                 Pins.Add(pin);
-                var nameCon = new XElement("NameCon");
+                var nameCon = new XElement(Network.ElementName("NameCon"));
                 nameCon.SetAttributeValue("UId", pin.Part.UId);
                 nameCon.SetAttributeValue("Name", pin.Name);
                 Xml.Add(nameCon);
@@ -127,7 +127,7 @@ namespace TIA_LIB.Xml.Network
         {
             if(_OpenCon == null)
             {
-                _OpenCon = new XElement("OpenCon");
+                _OpenCon = new XElement(Network.ElementName("OpenCon"));
                 _OpenCon.SetAttributeValue("UId", ++Network.MaxUId);
                 Xml.Add(_OpenCon);
             }
@@ -175,7 +175,7 @@ namespace TIA_LIB.Xml.Network
         private XElement _IdentCon;
         public List<XmlPin> Pins = new List<XmlPin>();      
         public XmlAccess Value;
-        private XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
+        private XNamespace _Namespace { get { return Network.SourceNamespace; } }
     }
   
 }

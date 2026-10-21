@@ -22,12 +22,12 @@ namespace TIA_LIB.Xml.Network
             if(isGlobal) Xml.SetAttributeValue("Scope", "GlobalVariable");
             if(!isGlobal) Xml.SetAttributeValue("Scope", "LocalVariable");
 
-            var symbol = new XElement("Symbol");
+            var symbol = new XElement(Network.ElementName("Symbol"));
             Xml.Add(symbol);
 
             foreach (var componentName in Components)
             {
-                var component = new XElement("Component");
+                var component = new XElement(Network.ElementName("Component"));
                 component.SetAttributeValue("Name", componentName);
                 symbol.Add(component);
             }
@@ -69,7 +69,7 @@ namespace TIA_LIB.Xml.Network
             var symbol = Xml.Descendants(_Namespace + "Symbol").FirstOrDefault();
             if (symbol == null)
             {
-                symbol = new XElement("Symbol");
+                symbol = new XElement(Network.ElementName("Symbol"));
                 Xml.Add(symbol);
             }
 
@@ -78,7 +78,7 @@ namespace TIA_LIB.Xml.Network
 
             foreach (var componentName in Components)
             {
-                var component = new XElement("Component");
+                var component = new XElement(Network.ElementName("Component"));
                 component.SetAttributeValue("Name", componentName);
                 symbol.Add(component);
             }
@@ -94,6 +94,6 @@ namespace TIA_LIB.Xml.Network
         public string Value;
         public string Datatype;
         public List<string> Components = new List<string>();
-        private XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
+        private XNamespace _Namespace { get { return Network.SourceNamespace; } }
     }
 }

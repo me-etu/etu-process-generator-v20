@@ -169,6 +169,14 @@ public XmlPhase AddPH(
 
 Creates or gets a phase under an operation under a unit. `countP` controls how many `P01...P05` parameter groups are active and wired as `SP01...SP05`.
 
+G-014 adds a run-wide `PlcProject.InterlockLanguage` (`OperationInterlockLanguage.Fbd` default, or `Scl`), selected before constructing `Project` and frozen by the base constructor. It affects only operation interlock FBs; `AddPH` signatures and operation call identity are unchanged. Ordered phase collection is explicit in `XmlOperation.PhaseOrder`; the interlock descriptor is finalized at upload, after all phases exist. An operation without phases has no interlock FB.
+
+SCL interlock names accept ASCII letters/digits/underscores/hyphens (first character letter/underscore; 128-character limit includes generated suffixes). Hyphens are retained, not normalized away. The renderer quotes the whole member name in both declarations (`"PH_Re-Inert_PRECOND_01" : Bool;`) and local references (`#"PH_Re-Inert_PRECOND_01" := FALSE;`). Quotes are source syntax only; model/interface member names remain `PH_Re-Inert_PRECOND_01`. Region labels retain the original phase name. Unsupported quotes/control characters/non-ASCII characters are rejected before upload. Simple-name source snapshots remain unchanged.
+
+SCL interlocks bypass the FBD network/member editor entirely. `OperationInterlockBatch` preflights all requested names and existing interfaces before generation. Existing compatible SCL bodies/comments/extra members remain untouched. Missing members, different languages/types, or wrong-folder/global-name collisions stop with a reconciliation diagnostic; no implicit merge or conversion occurs. New SCL blocks are generated directly into their existing folder using the external-source target-group overload, compiled, and checked through an actual export. KeepOnError retains failed generated evidence; dependent callers are not uploaded after failure. The backend only deletes its own successful external source and retains local sources/diagnostics. The legacy duplicate upload enumeration is idempotent for SCL.
+
+The pure renderer embeds the normalized template contract, uses Program_Alarm instruction/version metadata (no hand-coded internals), and emits Function/general/phase regions with cyclic FALSE assignments. Later FALSE lines overwrite earlier Function calculations unless the user adjusts them. Preflight requires State public/access/visibility/SetPoint parity with the FBD template. Installed V21 help topics `131792485771.htm`, `119205656075.htm`, and `53581488011.htm` in `TIAPortalOpennessenUS.zip/37231359755` establish folder generation, compilation diagnostics, and overwrite semantics. V21 x64/AnyCPU builds and `Tests/Verify-OperationInterlocks.ps1` pass offline; live Program_Alarm attributes, SCL compilation, EN/ENO and rerun behavior remain unverified. V20 APIs are absent. See README for commands and boundaries.
+
 Each parameter group in the public call is:
 
 ```text
@@ -599,6 +607,16 @@ These files are used by the simulator and are currently maintained manually. Aft
 
 ## Troubleshooting And Known Failure Modes
 
+### Device descriptions return as network comments
+
+Check the active branch's source, not only session memory. `fix-v21-phase-template-headers` was based on main at `2ecfd32`, while the instance-comment implementation existed only in `6dee8e1` on `g-012-device-instance-comments`. Building the older branch restored old network-comment behavior. That dependency is now integrated into the current working tree while retaining subsequent fixes. All seven Add methods call SetDeviceDescription after device lookup, constructors call ConfigureInstanceDescription, and XmlLocalInstance.SetDeclarationComment updates the outer Static comment with namespace/culture preservation. Existing network comments are deliberately retained; these descriptions are no longer newly written there. Run `Tests/Verify-DeviceInstanceComments.ps1` with the other regression scripts on both output folders to detect recurrence.
+
+### Undefined staged digital QB or disabled valve feedback
+
+If `fbA2` compilation reports missing `#hwIN.LS1181_QB` or `#hwIN.FB_OPN_VV1008`, compare the generated network with the Add flags before adding UDT members. `AddDigital` defaults `qualityBit=false`; all additional monitors must honor that flag too. `AddValve` may enable only open or closed feedback; each side must be generated independently. The staging inventory intentionally omits disabled inputs.
+
+These defects are fixed in Digital/Valve construction. Their cached Add paths also repair existing exact disabled generated input references through `XmlNetwork.ReplaceInputReferenceWithConstant`: disabled quality becomes TRUE (good quality before existing inversion), disabled position feedback becomes FALSE. The replacement retains access UId, wires and negations, updates access/wire caches, and leaves other operands intact. It performs no live import until the normal authorized generator run. It does not add fictitious hardware inputs or rewrite the rest of the network. Enabled valve feedback lookup uses the source network namespace. `Tests/Verify-DeviceStagingInputs.ps1` covers actual Add methods, fresh/cached/exported networks, flags, both staging modes and idempotence without live constructors. Interface-change diagnostics accompanying undefined operands may be secondary; a live compile is needed to determine remaining issues and warning details.
+
 ### HMI / PLC Not Found
 
 Typical symptom:
@@ -663,6 +681,8 @@ Important XML areas:
 - `Component`
 
 FlgNet namespace:
+
+On existing-network reruns, read the actual namespace from the network's FlgNet element. XmlNetwork.SourceNamespace is shared by its call/access/logic/wire readers; a hard-coded v4 lookup can miss an existing call and Parts container when a later export uses another namespace, causing XmlCall.AddFirst to throw. Offline qualified v4/v5 round-trip fixtures cover reuse/preservation and extensions. Newly created templates still use the legacy v4 path. Do not rewrite an existing network's namespace or infer its actual version from an installed schema filename. Unsupported non-editable structures stop with a block/network diagnostic before call insertion.
 
 ```text
 http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4

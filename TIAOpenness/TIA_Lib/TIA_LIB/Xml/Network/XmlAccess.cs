@@ -13,7 +13,7 @@ namespace TIA_LIB.Xml.Network
         {
             UId = ++Network.MaxUId;
 
-            Xml = new XElement("Access");
+            Xml = new XElement(Network.ElementName("Access"));
             Xml.SetAttributeValue("UId", UId);
 
             Network.Access.Add(UId, this);

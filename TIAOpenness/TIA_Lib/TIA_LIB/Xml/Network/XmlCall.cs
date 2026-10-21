@@ -20,10 +20,10 @@ namespace TIA_LIB.Xml.Network
 
             Name = instName;
             
-            Xml = new XElement("Call");          
+            Xml = new XElement(Network.ElementName("Call"));
             Xml.SetAttributeValue("UId", UId);
 
-            CallInfo = new XElement("CallInfo");
+            CallInfo = new XElement(Network.ElementName("CallInfo"));
             CallInfo.SetAttributeValue("BlockType", BlockType);
             CallInfo.SetAttributeValue("Name", BlockName);
 
@@ -31,12 +31,12 @@ namespace TIA_LIB.Xml.Network
 
             if (BlockType == "FB")
             {
-                var instance = new XElement("Instance");
+                var instance = new XElement(Network.ElementName("Instance"));
                 instance.SetAttributeValue("UId", ++Network.MaxUId);
 
                 instance.SetAttributeValue("Scope", InstType);
 
-                var component = new XElement("Component");
+                var component = new XElement(Network.ElementName("Component"));
                 component.SetAttributeValue("Name", InstName);
 
                 instance.Add(component);
@@ -140,7 +140,7 @@ namespace TIA_LIB.Xml.Network
         public string InstName;
         public Dictionary<string, XmlParameter> Parameters = new Dictionary<string, XmlParameter>();
         public List<string> Negations = new List<string>();
-        private XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
+        private XNamespace _Namespace { get { return Network.SourceNamespace; } }
     }
   
 }

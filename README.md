@@ -37,6 +37,7 @@ Do not hand-link `TIA_LIB.dll` from `etu-process-generator-TiAv20\bin\x64\Debug`
 ## Current Generation Flow
 
 At startup, the console asks for signal staging mode. Pressing Enter keeps the default marker-memory behavior. Selecting generated DB/UDT staging prepares `hwIN_<SafeUnitName>`, `hwOUT_<SafeUnitName>`, and `dbIO` artifacts, adds `hwIN`/`hwOUT` unit FB interfaces, and wires Plant unit calls to `dbIO.<SafeUnitName>.IN/OUT`.
+Before that choice, both apps independently ask for the language of **operation interlock FBs only**: `1. FBD` (Enter/default) or `2. SCL`. Phase, operation, unit and device block languages are unaffected. Programmatic callers may set `PlcProject.InterlockLanguage = OperationInterlockLanguage.Scl` before constructing `Project`; changing language after model construction begins is rejected.
 `Project.cs` performs these side-effecting steps:
 
 ```csharp
@@ -51,10 +52,36 @@ Portal.Portal.Dispose();
 
 This connects to an open or newly started TIA Portal instance and modifies the open TIA project.
 
+### Operation interlocks in SCL (G-014)
+
+`AddPH("BV130_B10_20", "OP5_Pressure", "PH_Vent")` and `AddPH(..., "PH_Fill")` generate one `OP5_Pressure_Interlocks` FB in the existing operation folder. The upload-time descriptor collects distinct phases in first declaration order. It renders an optimized version-0.1 FB with Static `State : Program_Alarm` version 1.0, 50 general Bool preconditions and 50 per phase (`01..50`). `AddOP` alone creates no interlock. The operation's `Interlocks` network, local multi-instance `Interlocks`, called block name and EN wiring retain their existing contract.
+
+The SCL starter has an empty Function region followed by General Interlocks and one region per phase. **Every FALSE assignment executes cyclically.** Calculations added in Function can be overwritten by later FALSE assignments; adjust those defaults when implementing interlocks. These lines are starter logic, not initialization values or process-specific logic.
+
+Before upload, preflight checks the complete batch for duplicate CPU-global names, generated-block conflicts, existing blocks in other folders, language/type mismatches and incompatible SCL interfaces. Compatible SCL blocks are reused without importing source or changing their body, comments or extra members. Missing requested phase members cause an actionable error: this release performs no conversion, additive merge, replacement, movement or deletion. Reconcile such blocks explicitly. Existing FBD interfaces retain the previous additive generation path; name/folder/language conflicts now stop before upload.
+
+The backend creates one uniquely named Siemens external source for each new SCL FB and uses `GenerateBlocksFromSource(targetGroup, GenerateBlockOption.KeepOnError)`, then compiles the resulting block and reports nested diagnostics and warnings. It checks folder placement and the exported required interface, including Program_Alarm version/public access and State visibility/access/SetPoint flags. It does not hard-code Program_Alarm internals. Failed sources and `OperationInterlockSources/<run-id>/<block>.scl` plus `diagnostics.txt` remain for investigation; callers are not imported after a generation failure. Only the source created by that successful generation is removed from Portal. Retained files are not automatically deleted. Each interlock generates at most once per prepared batch despite the legacy repeated upload enumeration.
+
+Backend evidence: installed V21 `Help/en-US/TIAPortalOpennessenUS.zip` topics `37231359755/131792485771.htm` (target group overload), `119205656075.htm` (KeepOnError and explicit compilation), and `53581488011.htm` (generation overwrites existing blocks). The installed `PublicAPI/V21/net48/Siemens.Engineering.Step7.dll` metadata confirms the signatures, result types and source deletion API. Existing-block preflight is therefore mandatory. The renderer is compiled into both library projects; no runtime template asset or redirected-drive access is required. SCL identifiers accept ASCII letters, digits, underscores and hyphens, up to 128 characters including generated suffixes, starting with a letter or underscore. Hyphenated phase names retain their identity: `"PH_Re-Inert_PRECOND_01" : Bool;` is referenced as `#"PH_Re-Inert_PRECOND_01" := FALSE;`. Simple identifiers keep their existing spelling. Quotes, control characters, non-ASCII names and other unsupported inputs fail with their AddPH identity before import.
+
+Offline validation:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File Tests/Verify-OperationInterlocks.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File Tests/Verify-V21StagingXml.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File Tests/Verify-DeviceStagingInputs.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File Tests/Verify-DeviceInstanceComments.ps1
+# Repeat against AnyCPU output with:
+# -LibraryPath ./etu-process-generator-TiAv21/bin/Debug/TIA_LIB.dll
+```
+
+On 2026-10-21 V21 Debug x64 and AnyCPU builds and both offline scripts passed. The fixtures compare complete SCL snapshots, cover both staging modes, cached repeated AddPH, preservation, preflight failures and repeated uploads, and exercise the existing FBD call builder without Portal constructors. V20 compilation was attempted but its standard Siemens API installation is absent; V20 API compatibility remains unverified. `Tests/Verify-DeviceInstanceComments.ps1` was initially absent because the G-012/G-013 dependency was missing from this branch; that implementation and its regression suite have now been restored. No generator or live Siemens source compilation was executed. Disposable-project generation, exact compiled interface/access parity, EN/ENO caller compilation, placement and edited-body reruns still require explicitly authorized live verification.
+
 ## Recent Generator Behavior Notes
 
 - Unified HMI detection in `SiemensPortal.cs` is capability-based: it recursively scans device items for `HmiSoftware` and no longer requires `System:Device.PC` or `IPC_`.
 - Plant generation now preserves existing `Plant` FB networks and unit calls. It adds a new unit-call network only when the current unit is not already called anywhere in `Plant`.
+- Trailing device descriptions in `Project.cs` are written to the direct Static instance declaration comments, including configured monitor and interlock instances. New device descriptions are not written as network comments. Existing network text is preserved. The implementation and `Tests/Verify-DeviceInstanceComments.ps1` were recovered from local G-012/G-013 commit `6dee8e1`, which was absent from the active V21-fix branch's older main baseline.
 - `Plant` preservation is intentional so legacy/manual networks like `BV160-B110` remain intact while adding new units such as `BL170`.
 
 ## Reference Files

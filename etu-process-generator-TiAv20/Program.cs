@@ -40,6 +40,7 @@ namespace EtuProcessGeneratorTiaV20
     {
         static void Main(string[] args)
         {
+            PlcProject.InterlockLanguage = OperationInterlockConfiguration.Select(Console.In, Console.Out);
             PlcProject.StagingMode = SelectSignalStagingMode();
             Console.WriteLine("Signal staging mode: " + (PlcProject.StagingMode == SignalStagingMode.GeneratedDbUdt ? "Generated DB/UDT staging" : "Marker memory"));
 

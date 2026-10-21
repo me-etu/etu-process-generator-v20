@@ -69,7 +69,7 @@ namespace TIA_LIB.Devices
 
                 }
 
-                network = unit.GetNetwork(tagName, networkComment);
+                network = unit.GetNetwork(tagName);
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
 
                 if (countInstance != 0)
@@ -88,7 +88,7 @@ namespace TIA_LIB.Devices
                         network.SetParameter(instance, "CFG", "Input", "typeDigitalCfg", "cfgData|" + unit.Name + "_" + tagName + "_Instance" + (indexInstance), true);;
                         network.SetParameter(instance, "RESET", "Input", "Bool", "RESET_CYCL", true);
                         network.SetParameter(instance, "IN", "Input", "Bool", inputReference.Value, inputReference.IsGlobal, false, neg);
-                        network.SetParameter(instance, "ERR_EXT", "Input", "Bool", qualityReference.Value, qualityReference.IsGlobal, false, true);
+                        if (qualityBit) network.SetParameter(instance, "ERR_EXT", "Input", "Bool", qualityReference.Value, qualityReference.IsGlobal, false, true);
 
                         if (countInstance > 1)
                         {
@@ -285,7 +285,16 @@ namespace TIA_LIB.Devices
             }
 
 
+            RepairDisabledQualityInput(qualityBit);
+            ConfigureInstanceDescription(calledBlockName, countInstance, networkComment);
             Console.WriteLine("Block was found " + unit.Name + "." + tagName);
+        }
+
+        internal void RepairDisabledQualityInput(bool qualityBit)
+        {
+            if (!qualityBit)
+                Unit.FindNetwork(TagName)?.ReplaceInputReferenceWithConstant(
+                    SignalStagingInventory.InputReference("IN_" + TagName + "_QB"), true);
         }
         
         public override void SetFaceplateProperties()

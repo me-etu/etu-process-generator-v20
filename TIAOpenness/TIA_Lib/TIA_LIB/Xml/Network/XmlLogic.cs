@@ -33,11 +33,11 @@ namespace TIA_LIB.Xml.Network
 
             UId = ++Network.MaxUId;
 
-            Xml = new XElement("Part");
+            Xml = new XElement(Network.ElementName("Part"));
             Xml.SetAttributeValue("Name", Name);
             Xml.SetAttributeValue("UId", UId);
 
-            TemplateValue = new XElement("TemplateValue");
+            TemplateValue = new XElement(Network.ElementName("TemplateValue"));
             TemplateValue.SetAttributeValue("Name", "Card");
             TemplateValue.SetAttributeValue("Type", "Cardinality");
             TemplateValue.Value = "0";
@@ -95,7 +95,7 @@ namespace TIA_LIB.Xml.Network
 
                 if (neg)
                 {
-                    ElNegated = new XElement("Negated");
+                    ElNegated = new XElement(Network.ElementName("Negated"));
                     ElNegated.SetAttributeValue("Name", "in" + InputCount);
                     Xml.Add(ElNegated);
                 }
@@ -117,6 +117,6 @@ namespace TIA_LIB.Xml.Network
         public XElement Xml;
         public XElement TemplateValue;
         public XElement ElNegated;
-        private XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
+        private XNamespace _Namespace { get { return Network.SourceNamespace; } }
     }
 }

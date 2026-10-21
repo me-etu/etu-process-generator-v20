@@ -11,7 +11,7 @@ namespace TIA_LIB.Xml
 {
     public class XmlBlock
     {
-        public XmlBlock(PlcBlockUserGroup parent_user_group, string name, string file_name, string template, string instName, bool instGlobal = false, string user_gorup_name = "", bool overwrite = false)
+        public XmlBlock(PlcBlockUserGroup parent_user_group, string name, string file_name, string template, string instName, bool instGlobal = false, string user_gorup_name = "", bool overwrite = false, bool preserveOnly = false, string expectedLanguage = null)
         {          
             _Name = name;
 
@@ -44,6 +44,12 @@ namespace TIA_LIB.Xml
             }
 
             Xml = SiemensPortal.Current.ExportPlcBlock(UserGroup, _Name, FileName);
+            if (Xml != null && expectedLanguage != null &&
+                (string)Xml.Element("SW.Blocks.FB")?.Element("AttributeList")?.Element("ProgrammingLanguage") != expectedLanguage)
+                throw new InvalidOperationException("Operation interlock " + UserGroup.Name + "/" + name + " requires an " + expectedLanguage + " FB. Existing block language/type differs. Reconcile explicitly; no automatic conversion or replacement is performed.");
+            // SCL operation interlocks are inspected/reused as complete blocks at preflight.
+            // Do not parse their SCL networks as FBD, load a fallback or add interface members.
+            if (preserveOnly) return;
             if (Xml != null)
             {
                 _AllowedCultures = GetCultures(Xml);
@@ -52,7 +58,7 @@ namespace TIA_LIB.Xml
 
             if (Xml == null || overwrite)
             {
-                Xml = XElement.Load(template);
+                Xml = LoadEmptyTemplate(template);
                 Name = name;
             }
 
@@ -76,6 +82,21 @@ namespace TIA_LIB.Xml
                 }
             }
 
+        }
+
+        private static XElement LoadEmptyTemplate(string template)
+        {
+            var xml = XElement.Load(template);
+#if TIA_V21
+            // Migrate only fresh template documents; retain existing exported block content.
+            xml.Element("Engineering").SetAttributeValue("version", "V21");
+            var attributes = xml.Element("SW.Blocks.FB").Element("AttributeList");
+            if (attributes.Element("Namespace") == null)
+            {
+                attributes.Element("Name").AddAfterSelf(new XElement("Namespace"));
+            }
+#endif
+            return xml;
         }
 
         public XmlLocalInstance GetLocalInstance(string name, string datatype)
@@ -215,6 +236,16 @@ namespace TIA_LIB.Xml
             }
         }
 
+        internal string GetCommentCulture()
+        {
+            var cultures = _AllowedCultures != null && _AllowedCultures.Count > 0
+                ? _AllowedCultures : _ProjectCultures;
+            if (cultures.Count == 0) return "en-US";
+            return cultures.FirstOrDefault(c => string.Equals(c, "en-US", StringComparison.OrdinalIgnoreCase))
+                ?? cultures.FirstOrDefault(c => string.Equals(c, "de-DE", StringComparison.OrdinalIgnoreCase))
+                ?? cultures.OrderBy(c => c, StringComparer.Ordinal).First();
+        }
+
         private void PruneUnsupportedMultilingualTextItems()
         {
             if (_AllowedCultures == null || _AllowedCultures.Count == 0)
@@ -239,7 +270,7 @@ namespace TIA_LIB.Xml
             }
         }
 
-        public void Upload()
+        public virtual void Upload()
         {
             if (!HasChanged) return;
 

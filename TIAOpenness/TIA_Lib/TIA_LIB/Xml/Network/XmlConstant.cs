@@ -15,14 +15,14 @@ namespace TIA_LIB.Xml.Network
             Value = value;
 
             Xml.SetAttributeValue("Scope", "LiteralConstant");
-            var constant = new XElement("Constant");
+            var constant = new XElement(Network.ElementName("Constant"));
             Xml.Add(constant);
 
-            var constantType = new XElement("ConstantType");
+            var constantType = new XElement(Network.ElementName("ConstantType"));
             constantType.SetValue(type);
             constant.Add(constantType);
 
-            var constantValue = new XElement("ConstantValue");
+            var constantValue = new XElement(Network.ElementName("ConstantValue"));
             constantValue.SetValue(value);
             constant.Add(constantValue);
 
@@ -51,6 +51,6 @@ namespace TIA_LIB.Xml.Network
 
         public string Type;
         public string Value;
-        private XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
+        private XNamespace _Namespace { get { return Network.SourceNamespace; } }
     }
 }

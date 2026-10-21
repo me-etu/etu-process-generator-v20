@@ -33,7 +33,7 @@ namespace TIA_LIB.Devices
 
             if (network == null)
             {
-                network = unit.GetNetwork(tagName, networkComment);
+                network = unit.GetNetwork(tagName);
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
                 network.SetParameter(call, "en", "Input", "Bool");;
             }
@@ -112,6 +112,8 @@ namespace TIA_LIB.Devices
             }
 
                 Console.WriteLine("Block was found " + unit.Name + "." + tagName);
+            // Keep the legacy parameter name for named constructor callers.
+            ConfigureInstanceDescription(calledBlockName, 0, networkComment);
         }
         public override void SetFaceplateProperties()
         {

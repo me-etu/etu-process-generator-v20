@@ -64,7 +64,7 @@ namespace TIA_LIB.Devices
                     }
                 }
 
-                network = unit.GetNetwork(tagName, networkComment);
+                network = unit.GetNetwork(tagName);
 
                 call = network.GetCall(calledBlockName, "FB", "LocalVariable", tagName);
                 //network.SetParameter(call, "en", "Input", andOut);
@@ -201,6 +201,7 @@ namespace TIA_LIB.Devices
                 }
             }
 
+            _Namespace = network.SourceNamespace;
             network.SetParameter(call, "TYP_ICON", "Input", "Usint", iconType.ToString());
             network.SetParameter(call, "CFG", "Input", "typeValveCfg", "cfgData|" + unit.Name + "_" + tagName, true);
             network.SetParameter(call, "RESET", "Input", "Bool", "HMI|" + "RESET", true);
@@ -222,7 +223,7 @@ namespace TIA_LIB.Devices
                                                                                                             el.Elements().ElementAtOrDefault(0).Attribute("Name").Value == "out" &&
                                                                                                             el.Elements().ElementAtOrDefault(1).Attribute("Name").Value == "FB_OPN").FirstOrDefault();
 
-                    if (checkWire == null)
+                    if (mon_opn && checkWire == null)
                     {
                         var deleteWire = networkSource.Descendants(_Namespace + "NameCon").Where(el => el.Attribute("Name").Value != null && el.Attribute("Name").Value == "FB_OPN").FirstOrDefault();
                         if (deleteWire != null) deleteWire.Parent.Remove();
@@ -249,7 +250,7 @@ namespace TIA_LIB.Devices
                                                                                                         el.Elements().ElementAtOrDefault(0).Attribute("Name").Value == "out" &&
                                                                                                         el.Elements().ElementAtOrDefault(1).Attribute("Name").Value == "FB_CLS").FirstOrDefault();
 
-                    if (checkWire == null)
+                    if (mon_cls && checkWire == null)
                     {
                         var deleteWire = networkSource.Descendants(_Namespace + "NameCon").Where(el => el.Attribute("Name").Value != null && el.Attribute("Name").Value == "FB_CLS").FirstOrDefault();
                         if (deleteWire != null) deleteWire.Parent.Remove();
@@ -417,7 +418,19 @@ namespace TIA_LIB.Devices
                 }
             }
 
+            RepairDisabledFeedback(mon_opn, mon_cls, qualityBit);
+            ConfigureInstanceDescription(calledBlockName, 0, networkComment, interlockCount + SafeInterlockCount);
             Console.WriteLine("Block was found " + unit.Name + "." + tagName);
+        }
+
+        internal void RepairDisabledFeedback(bool monOpn, bool monCls, bool qualityBit)
+        {
+            var network = Unit.FindNetwork(TagName);
+            if (network == null) return;
+            if (!monOpn) network.ReplaceInputReferenceWithConstant(SignalStagingInventory.InputReference("FB_OPN_" + TagName), false);
+            if (!monCls) network.ReplaceInputReferenceWithConstant(SignalStagingInventory.InputReference("FB_CLS_" + TagName), false);
+            if (!monOpn || !qualityBit) network.ReplaceInputReferenceWithConstant(SignalStagingInventory.InputReference("FB_OPN_" + TagName + "_QB"), true);
+            if (!monCls || !qualityBit) network.ReplaceInputReferenceWithConstant(SignalStagingInventory.InputReference("FB_CLS_" + TagName + "_QB"), true);
         }
         public override void SetFaceplateProperties()
         {

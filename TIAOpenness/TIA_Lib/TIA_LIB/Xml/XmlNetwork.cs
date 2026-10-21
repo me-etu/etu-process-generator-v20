@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using TIA_LIB.Xml.Network;
+using TIA_LIB.SignalStaging;
 
 namespace TIA_LIB.Xml
 {
@@ -21,6 +22,7 @@ namespace TIA_LIB.Xml
             Name = titel;
 
             _NetworkSource = Xml.Descendants("NetworkSource").FirstOrDefault();
+            ReadSourceNamespace();
 
             Parts = _NetworkSource.Descendants(_Namespace + "Parts").FirstOrDefault();
             _Wires = _NetworkSource.Descendants(_Namespace + "Wires").FirstOrDefault();
@@ -43,6 +45,7 @@ namespace TIA_LIB.Xml
             Xml = xml;
 
             _NetworkSource = Xml.Descendants("NetworkSource").FirstOrDefault();
+            ReadSourceNamespace();
 
             //SUCHEN DEKLARIERTE VARIABLES
             foreach (var value in _NetworkSource.Descendants(_Namespace + "Access"))
@@ -132,6 +135,10 @@ namespace TIA_LIB.Xml
 
             if(call == null)
             {
+                if (Parts == null || _Wires == null)
+                    throw new InvalidOperationException("Cannot add call '" + blockName + "' to network '" + Name +
+                        "' in " + Block.FileName + ": no editable FBD Parts/Wires containers. Source namespace: " +
+                        SourceNamespace + ". Preserve the block and inspect its exported network language/structure.");
                 call = new XmlCall(this, blockName, blockType, instType, instName);
             }
 
@@ -327,7 +334,44 @@ namespace TIA_LIB.Xml
         private XElement _NetworkSource;
         private XElement _Wires;
         public XElement Parts;
-        private XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
+        internal void ReplaceInputReferenceWithConstant(SignalReference reference, bool value)
+        {
+            // Repair only exact generated operands disabled by the device configuration.
+            // Keep UIds/wires/negations intact; unrelated/manual operands are not rewritten.
+            string scope = reference.IsGlobal ? "GlobalVariable" : "LocalVariable";
+            foreach (var access in Access.Values.OfType<XmlGlobal>().Where(a =>
+                (string)a.Xml.Attribute("Scope") == scope && a.Components.SequenceEqual(reference.Value.Split('|'))).ToList())
+            {
+                var xml = new XElement(SourceNamespace + "Access", new XAttribute("UId", access.UId),
+                    new XAttribute("Scope", "LiteralConstant"),
+                    new XElement(SourceNamespace + "Constant", new XElement(SourceNamespace + "ConstantType", "Bool"),
+                        new XElement(SourceNamespace + "ConstantValue", value ? "True" : "False")));
+                access.Xml.ReplaceWith(xml);
+                var constant = new XmlConstant(this, xml);
+                Access[access.UId] = constant;
+                foreach (var wire in Wires.Values.Where(w => w.Value == access)) wire.Value = constant;
+                Block.HasChanged = true;
+            }
+        }
+
+        public XNamespace SourceNamespace { get; private set; } = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";
+        private XNamespace _Namespace { get { return SourceNamespace; } }
+
+        private void ReadSourceNamespace()
+        {
+            if (_NetworkSource == null)
+                throw new InvalidOperationException("Missing NetworkSource in block " + Block.FileName + ", compile unit " + (string)Xml.Attribute("ID") + ".");
+            var source = _NetworkSource.Elements().FirstOrDefault(e => e.Name.LocalName == "FlgNet");
+            if (source != null) SourceNamespace = source.Name.Namespace;
+        }
+
+        internal XName ElementName(string name)
+        {
+            // Preserve legacy v4 generation; qualify additions to newer exported networks
+            // in their existing namespace rather than relabeling the user's network.
+            return SourceNamespace.NamespaceName.EndsWith("/FlgNet/v4", StringComparison.Ordinal)
+                ? XName.Get(name) : SourceNamespace + name;
+        }
 
 
     }

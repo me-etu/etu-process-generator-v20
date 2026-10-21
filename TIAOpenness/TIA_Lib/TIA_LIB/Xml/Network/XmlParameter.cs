@@ -21,7 +21,7 @@ namespace TIA_LIB.Xml.Network
 
             if(name.ToLower() != "en")
             {
-                Xml = new XElement("Parameter");
+                Xml = new XElement(Call.Network.ElementName("Parameter"));
 
                 Xml.SetAttributeValue("Name", name);
                 Xml.SetAttributeValue("Section", section);
@@ -48,7 +48,7 @@ namespace TIA_LIB.Xml.Network
 
         public void SetNegations()
         {
-            Neg = new XElement("Negated");
+            Neg = new XElement(Call.Network.ElementName("Negated"));
             Neg.SetAttributeValue("Name", Name);
             Call.CallInfo.AddAfterSelf(Neg);
             Call.Network.Block.HasChanged = true;

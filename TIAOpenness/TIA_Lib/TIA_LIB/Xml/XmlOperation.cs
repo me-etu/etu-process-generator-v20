@@ -86,6 +86,7 @@ namespace TIA_LIB.Xml
                 p05_type, p05_sp_max, p05_sp_min, p05_numb_points, p05_unit, p05_txt_list);
 
                 Phases.Add(name, ph);
+                PhaseOrder.Add(name);
 
                 var network = FindNetwork(name);
                 XmlCall call;
@@ -122,6 +123,7 @@ namespace TIA_LIB.Xml
 
         
         public Dictionary<string, XmlPhase> Phases = new Dictionary<string, XmlPhase>();
+        internal readonly List<string> PhaseOrder = new List<string>();
         public XmlUnit Unit;
         public Dictionary<string, XmlInterlock> Interlocks = new Dictionary<string, XmlInterlock>();
         private XNamespace _Namespace = "http://www.siemens.com/automation/Openness/SW/NetworkSource/FlgNet/v4";

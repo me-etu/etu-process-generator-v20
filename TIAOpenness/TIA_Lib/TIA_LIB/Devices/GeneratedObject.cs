@@ -31,6 +31,40 @@ namespace TIA_LIB.Devices
             Unit.Devices.Add(tagName, this);
         }
 
+        private string _DescriptionBlockType;
+        private int _DescriptionMonitorCount;
+        private int _DescriptionInterlockCount;
+
+        protected void ConfigureInstanceDescription(string blockType, int monitorCount, string description, int interlockCount = 0)
+        {
+            _DescriptionBlockType = blockType;
+            _DescriptionMonitorCount = monitorCount;
+            _DescriptionInterlockCount = interlockCount;
+            SetDeviceDescription(description);
+        }
+
+        public void SetDeviceDescription(string description)
+        {
+            if (string.IsNullOrWhiteSpace(description)) return;
+            for (int index = 0; index <= _DescriptionMonitorCount; index++)
+            {
+                var instanceName = index == 0 ? TagName : TagName + "_Instance" + index;
+                SetInstanceDescription(instanceName, _DescriptionBlockType, description);
+            }
+            for (int index = 1; index <= _DescriptionInterlockCount; index++)
+                SetInstanceDescription(TagName + "_Interlock" + index, "fbIntlck7", description);
+        }
+
+        private void SetInstanceDescription(string instanceName, string blockType, string description)
+        {
+            XmlLocalInstance instance;
+            if (!Unit.LocalInstance.TryGetValue(instanceName, out instance) ||
+                instance.Datatype.Trim('"') != blockType)
+                throw new InvalidOperationException("Expected local instance '" + instanceName +
+                    "' of " + blockType + " in unit '" + Unit.Name + "'.");
+            instance.SetDeclarationComment(description);
+        }
+
         public virtual void SetFaceplateProperties() { }
         public XmlUnit Unit;
         public XmlOperation Op;

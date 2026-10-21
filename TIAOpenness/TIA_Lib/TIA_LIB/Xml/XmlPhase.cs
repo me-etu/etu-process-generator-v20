@@ -153,14 +153,17 @@ namespace TIA_LIB.Xml
 
             var interlock = GetInterlock(Op.Name);
 
-            for (var i = 1; i <= 50; i++)
+            if (PlcProject.InterlockLanguage == OperationInterlockLanguage.Fbd)
             {
-                interlock.GetLocalInstance("PRECOND_" + (i < 10 ? "0" + i.ToString() : i.ToString()), "Bool");
-            }
+                for (var i = 1; i <= 50; i++)
+                {
+                    interlock.GetLocalInstance("PRECOND_" + (i < 10 ? "0" + i.ToString() : i.ToString()), "Bool");
+                }
 
-            for (var i = 1; i <= 50; i++)
-            {
-                interlock.GetLocalInstance(phName + "_PRECOND_" + (i < 10 ? "0" + i.ToString() : i.ToString()), "Bool");
+                for (var i = 1; i <= 50; i++)
+                {
+                    interlock.GetLocalInstance(phName + "_PRECOND_" + (i < 10 ? "0" + i.ToString() : i.ToString()), "Bool");
+                }
             }
 
             //network.SetParameter(call, "CountP", "Input", "USint", countP.ToString());

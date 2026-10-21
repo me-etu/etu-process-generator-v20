@@ -2,6 +2,26 @@
 
 All notable project and generator changes should be recorded here.
 
+## 2026-10-21
+
+### Added
+
+- G-014: independent startup FBD/SCL selection for operation interlock FBs in both apps, with FBD as default and a frozen pre-construction setting. Shared pure SCL rendering finalizes ordered distinct phases at upload; general and per-phase declarations/regions use padded `01..50` suffixes and cyclic FALSE starter assignments.
+- Batch interlock preflight detects CPU-global/requested name conflicts, folder/language/type mismatches and incompatible existing SCL interfaces. Matching SCL blocks are reused unchanged; conversion/merge/deletion is not automatic. New SCL FBs use Siemens external sources with explicit target folders, compilation diagnostics and retained failure evidence; repeated upload enumeration does not regenerate them.
+- Added complete SCL source snapshots and offline planning/preservation/failure/call-contract fixtures in `Tests/Verify-OperationInterlocks.ps1`. V21 Debug x64/AnyCPU builds, new fixtures and existing staging XML checks pass. V20 build is blocked by absent installed APIs; the referenced device-comment regression script is missing. Live source generation/interface/EN-ENO verification remains pending; the generator was not run.
+
+### Fixed
+
+- Restored device instance-description behavior from local commit `6dee8e1` (`g-012-device-instance-comments`) into the active V21-fix branch. That implementation was absent from this branch's older main baseline, so rebuilding had brought back network descriptions. All seven device Add paths now update direct Static instance comments, including configured monitor/interlock instances; constructors no longer write these descriptions as network comments. Existing network text is preserved. Recovered description/schema/preservation tests run alongside the newer staging-input tests; current SCL, namespace and A2 IO fixes are retained. Restored the companion motor staging single-connection guard required by the original topology regression.
+
+- Fixed A2's undefined staged digital quality inputs: additional `fbMonDi` monitors now honor `qualityBit=false`, and marker-tag planning receives the same flag. Valve feedback generation now independently honors `mon_opn` and `mon_cls`, instead of referencing both sides when either monitor is enabled. Reruns repair exact stale disabled-input operands with neutral Bool constants while preserving UIds, wires, negations and unrelated references. Valve feedback checks use the existing network's namespace to avoid duplicating enabled logic after export. New offline tests cover actual Add methods, both staging modes, monitor counts, feedback/quality combinations and qualified v4/v5 reruns. Live recompilation remains pending; the pasted log's 90 warnings were not individually included.
+
+- SCL operation interlocks now accept hyphenated phase/operation names. A2's `PH_Re-Inert`, `PH_H2-replace` and `PH_N2-replace` were rejected by an overly restrictive identifier validator. Hyphenated Static members are quoted consistently in declarations and local assignments while model/interface/region names remain intact; simple-name output is unchanged. Full-source offline fixtures cover quoting, exact raw interface names and rejection of unsafe source characters.
+
+- Existing FBD network parsing now reads the FlgNet namespace from each network instead of assuming v4. The old assumption could miss existing calls/Parts and crash at XmlCall.AddFirst on a rerun. Network helpers share the source namespace; additions to newer networks retain it, while legacy v4 generation stays unchanged. Offline v4/v5 round-trip fixtures cover call reuse, manual XML preservation, added calls/parameters/accesses/wires and reference/value edits. Missing editable containers now produce a diagnostic before adding a call. The user's exact unit export/live rerun still needs confirmation; the separate no-merge boundary for new SCL phase members remains unchanged.
+
+- Fresh FB templates in V21 builds now emit engineering version V21 and an empty global Namespace identifier. Adding a phase reached an interlock template with an unsupported V17 header; the operation template had the same issue. Existing exported blocks and V20 template loading remain unchanged. Extended offline checks cover unit, operation, phase, and interlock FB template metadata while preserving all other XML content.
+
 ## 2026-10-20
 
 ### Fixed

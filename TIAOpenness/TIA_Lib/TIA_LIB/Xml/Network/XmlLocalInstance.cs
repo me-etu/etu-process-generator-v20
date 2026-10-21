@@ -16,7 +16,7 @@ namespace TIA_LIB.Xml
             Block = block;
             Datatype = datatype;
 
-            Xml = new XElement("Member");
+            Xml = new XElement(_Namespace + "Member");
 
             Xml.SetAttributeValue("Name", name);
             Xml.SetAttributeValue("Datatype", datatype);
@@ -39,6 +39,44 @@ namespace TIA_LIB.Xml
             Datatype = Xml.Attribute("Datatype").Value;
 
             Block.LocalInstance.Add(Name, this);
+        }
+
+        public void SetDeclarationComment(string description)
+        {
+            if (string.IsNullOrWhiteSpace(description)) return;
+
+            var culture = Block.GetCommentCulture();
+            var ns = Xml.Ancestors().Select(el => el.Name.Namespace)
+                .FirstOrDefault(value => value == _Namespace) ?? Xml.Name.Namespace;
+            var before = new XElement(Xml);
+            // Repair only this declaration's legacy unqualified interface elements.
+            foreach (var element in Xml.DescendantsAndSelf().Where(el => el.Name.Namespace == XNamespace.None))
+                element.Name = ns + element.Name.LocalName;
+
+            var comments = Xml.Elements().Where(el => el.Name.LocalName == "Comment").ToList();
+            var comment = comments.FirstOrDefault();
+            if (comment == null)
+            {
+                comment = new XElement(ns + "Comment");
+                Xml.Add(comment); // AttributeList must remain first.
+            }
+            var texts = comments.SelectMany(el => el.Elements())
+                .Where(el => el.Name.LocalName == "MultiLanguageText" &&
+                    string.Equals((string)el.Attribute("Lang"), culture, StringComparison.OrdinalIgnoreCase)).ToList();
+            var text = texts.FirstOrDefault();
+            if (text == null)
+            {
+                text = new XElement(ns + "MultiLanguageText", new XAttribute("Lang", culture));
+                comment.Add(text);
+            }
+            text.Value = description;
+            foreach (var duplicate in texts.Skip(1)) duplicate.Remove();
+            foreach (var extra in comments.Skip(1))
+            {
+                comment.Add(extra.Elements().ToList());
+                extra.Remove();
+            }
+            if (!XNode.DeepEquals(before, Xml)) Block.HasChanged = true;
         }
 
         public void SetMemberComment(string sectionName, string memberName, string datatype, string description)

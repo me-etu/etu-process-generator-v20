@@ -16,6 +16,7 @@ Each version has its own declarative `Project.cs`: `etu-process-generator-TiAv20
 - `AddTp(...)`
 - `AddRp(...)`
 
+
 Both initially select unit `BV260-B210`; other unit definitions remain inside `#if false`. SiVArc generation remains commented out. Future plant-definition edits must target the intended app version.
 
 ## Important Runtime Dependency
@@ -79,10 +80,18 @@ On 2026-10-21 V21 Debug x64 and AnyCPU builds and both offline scripts passed. T
 
 ## Recent Generator Behavior Notes
 
+- `AddDigital(..., qualityBit: true)` creates the QB input and connects it, inverted, to `ERR_EXT` on the main monitor and all configured extra monitors. With `false`, it creates no QB input/tag and neutralizes exact stale generated QB references during regeneration while preserving their wire topology and unrelated wiring. Existing PLC tags are not deleted by this correction.
+
 - Unified HMI detection in `SiemensPortal.cs` is capability-based: it recursively scans device items for `HmiSoftware` and no longer requires `System:Device.PC` or `IPC_`.
 - Plant generation now preserves existing `Plant` FB networks and unit calls. It adds a new unit-call network only when the current unit is not already called anywhere in `Plant`.
 - Trailing device descriptions in `Project.cs` are written to the direct Static instance declaration comments, including configured monitor and interlock instances. New device descriptions are not written as network comments. Existing network text is preserved. The implementation and `Tests/Verify-DeviceInstanceComments.ps1` were recovered from local G-012/G-013 commit `6dee8e1`, which was absent from the active V21-fix branch's older main baseline.
 - `Plant` preservation is intentional so legacy/manual networks like `BV160-B110` remain intact while adding new units such as `BL170`.
+
+Trailing `//` descriptions on `AddAnalog`, `AddDigital`, `AddValve`, `AddValveControl`, `AddMotor`, `AddMotorControl`, and `AddPidControl` calls are written to the called FB instance's direct `Static` declaration comment. For example, `// Level radar sensor BV130 B13` describes instance `LC-B13` of `fbMonAn`. Analog/digital monitor `_InstanceN` declarations receive the same description. For `AddValve`, `AddValveControl`, `AddMotor` (`fbMotS`), and `AddMotorControl` (`fbMotAn`), every configured ordinary and safe `_InterlockN` declaration (`fbIntlck7`) also receives the exact parent description. Out-of-range helpers and unrelated manual instances retain their own comments. Cached calls use the original configured target counts; changing counts does not reconcile topology. This works for new, existing, and cached devices in both staging modes, using the selected app's caller source file.
+
+Empty or unavailable source descriptions preserve existing comments. Nonempty text replaces only the supported target language (en-US, otherwise de-DE, otherwise the first supported culture); other translations and nested comments, including the unit wrapper's `FUNC_TEXT`, remain intact. Source descriptions no longer populate FBD network comments. Existing network comments are preserved. Instance descriptions are independent of network formatting; selectable SCL operation interlocks are described above.
+
+Run `./Tests/Verify-DeviceInstanceComments.ps1` after building V21 for offline device routing, declaration/comment preservation, and Siemens interface-schema checks. The fixture bypasses side-effecting constructors and uses in-memory DB caches with no live Portal session. Static-column display and live repeat generation still require a separately authorized disposable-project test.
 
 ## Reference Files
 
@@ -91,6 +100,8 @@ On 2026-10-21 V21 Debug x64 and AnyCPU builds and both offline scripts passed. T
 - `unit_template.xlsx`: planning workbook for G-009-style unit spec sheets. It is a local template artifact only and does not connect to or run TIA Portal.
 
 ## Build Notes
+
+Use an up-to-date `main` as the baseline for new work. After fetching authorized remote updates, check `git status --short --branch` and `git log HEAD..origin/main --oneline` before creating a task branch. The consolidated generator includes the device instance-comment, V21 template, SCL interlock and staged-input fixes together. Validate all four offline suites listed above after changes to the shared library. `Specs/` and `SKILLS.md` remain ignored local handoff/session files; runtime templates and regression fixtures are tracked.
 
 Preferred workflow is Visual Studio with `Debug|x64`.
 

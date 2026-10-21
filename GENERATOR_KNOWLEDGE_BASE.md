@@ -194,6 +194,12 @@ AddPH("450", "OP5_Charge", "PH_Drying", 2, false, 0, 600, 0, "min", "", true, 0,
 
 ### Device Methods
 
+Trailing `//` descriptions on `AddAnalog`, `AddDigital`, `AddValve`, `AddValveControl`, `AddMotor`, `AddMotorControl`, and `AddPidControl` calls are written to the called FB instance's direct `Static` declaration comment. For example, `// Level radar sensor BV130 B13` describes instance `LC-B13` of `fbMonAn`. Analog/digital monitor `_InstanceN` declarations receive the same description. For `AddValve`, `AddValveControl`, `AddMotor` (`fbMotS`), and `AddMotorControl` (`fbMotAn`), every configured ordinary and safe `_InterlockN` declaration (`fbIntlck7`) also receives the exact parent description. Out-of-range helpers and unrelated manual instances retain their own comments. Cached calls use the original configured target counts; changing counts does not reconcile topology. This works for new, existing, and cached devices in both staging modes, using the selected app's caller source file.
+
+Empty or unavailable source descriptions preserve existing comments. Nonempty text replaces only the supported target language (en-US, otherwise de-DE, otherwise the first supported culture); other translations and nested comments, including the unit wrapper's `FUNC_TEXT`, remain intact. Source descriptions no longer populate FBD network comments. Existing network comments are preserved. Instance descriptions are independent of network formatting; selectable SCL operation interlocks are described above.
+
+`XmlLocalInstance.SetDeclarationComment` writes the outer declaration comment and marks its block changed only when XML changes. `SetMemberComment` retains its nested-member meaning. Constructors keep the legacy `networkComment` named parameter for compatibility, but route it to the declaration. Covered Add methods also apply descriptions after cache lookup. Known declaration identities and FB datatypes are checked; missing/mismatched declarations produce a diagnostic rather than a phantom member. New local declarations use interface/v5; applying a description repairs legacy unqualified elements only within that instance.
+
 `AddDigital`
 
 ```csharp
@@ -214,7 +220,7 @@ Adds a digital input monitor and registers PLC tag `IN_<name>`.
 - `iconType`: written to generated FB input `TYP_ICON`.
 - `colorType`: public parameter, but currently not used by the `Digital` implementation; keep `0`.
 - `instanceCount`: creates additional monitor instances and aggregates warning/alarm outputs; keep `0` for ordinary one-signal sensors.
-- `qualityBit`: wires monitor external error to `IN_<name>_QB` when enabled.
+- `qualityBit`: only when enabled, creates the QB input/tag and connects inverted `IN_<name>_QB` (or `hwIN.<SafeMember>_QB`) to `ERR_EXT` on the base and all configured extra monitors. Disabled regeneration neutralizes exact stale generated QB references with good-quality Bool constants, preserving UIds, wires, negation, unrelated manual wiring and existing PLC tags.
 - `neg`: inversion flag for `IN_<name>`.
 
 Typical snippet:
@@ -467,7 +473,7 @@ Current marker allocation:
 
 Known quirks:
 
-- `qualityBit` affects generated monitor wiring for digitals and valves, but helper tag records have their own defaults, so `_QB` tags may still be created by default.
+- Digital helper tag records now receive the explicit `qualityBit` setting, so disabled digital QB tags are not created. Valve helper tag records still have their own defaults; their `_QB` tag behavior is separate.
 - `colorType` is present on `AddDigital(...)` but is not currently used by the `Digital` implementation.
 - `AddMotorControl(...)` affects controlled-motor FB generation and UI properties, but its PLC tag registration is less explicit than `AddMotor(...)`.
 

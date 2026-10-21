@@ -25,6 +25,7 @@ namespace EtuProcessGeneratorTiaV21
             Thread.CurrentThread.CurrentCulture = ci;
             bool mon_opn = true;
             bool mon_cls = true;
+            bool mon_on = true;
 
             #region Units
 
@@ -32,13 +33,110 @@ namespace EtuProcessGeneratorTiaV21
 
 
              
-                   #region Unit BV130_B10_20
+                #region Unit BV130_B10_20
                 AddAnalog("BV130_B10_20", "LC-B13", 2, 0, "%", 0, 0, 100); // Level radar sensor BV130 B13
                 AddDigital("BV130_B10_20", "LSA-B23", 2, 0, 0, false, false); // Overfill protection BV130 B23
                 AddDigital("BV130_B10_20", "MS-G11", 1, 0, 0, false, false); // Maintenance switch BV130 G11
                 AddValve("BV130_B10_20", "Q11", 1, 0, 0, false, false, false, false, false, -1, -1); // Open valve BV140 Q11
                 AddMotor("BV130_B10_20", "G11", 5, 0, 0, false, false, -1, -1); // Pump BV130 G11 Run
+                AddPH("BV130_B10_20", "OP5_Pressure", "PH_Vent");
+                AddPH("BV130_B10_20", "OP5_Pressure", "PH_Blanketing");
+                AddPH("BV130_B10_20", "OP5_Charge", "PH_Charge_Black_run");
+                AddPH("BV130_B10_20", "OP5_Charge", "PH_Charge_Educt");
+                AddPH("BV130_B10_20", "OP5_Charge", "PH_Charge_Catalyst", 1, false, 0, 300, 0, "L");
+                AddPH("BV130_B10_20", "OP5_Charge", "PH_Charge_CIP");
+                AddPH("BV130_B10_20", "OP5_Agitate", "PH_Agitate", 1, false, 0, 470, 0, "rpm");
             #endregion
+#if false
+            #region Unit hydrogenerator
+
+            #region Digitale Eingänge
+            AddDigital("A2", "LS1181", 4, 0, 1);
+            AddDigital("A2", "LS1182", 4, 1, 1);
+            AddDigital("A2", "LS1183", 4, 1, 1);
+            AddDigital("A2", "LS1184", 4, 0, 1);
+            AddDigital("A2", "LS1188", 2, 0, 1);
+            AddDigital("A2", "FISL1185", 3, 0, 1);
+            AddDigital("A2", "PI1162", 2, 0, 1);
+            AddDigital("A2", "GS1120", 2, 0, 0);
+            AddDigital("A2", "FI1007", 2, 0, 3);
+            #endregion
+
+            #region Analog Eingänge
+            AddAnalog("A2", "FI1006", 2, 0, "m³/h", 2, 0.28f, 2.1f);
+            AddAnalog("A2", "FI1081", 4, 0, "m³/h", 2, 0.1f, 1);
+            AddAnalog("A2", "FIC1083", 4, 1, "m³/h", 2, 0.43f, 3.1f);
+            AddAnalog("A2", "TI1071", 4, 4, "°C", 1, -40, 150);
+            AddAnalog("A2", "TI1172", 2, 2, "°C", 1, -10, 150);
+            AddAnalog("A2", "TI1174", 3, 2, "°C", 1, -40, 150);
+            AddAnalog("A2", "TI1175", 2, 0, "°C", 1, -40, 150);
+            AddAnalog("A2", "TI1176", 3, 2, "°C", 1, -40, 150);
+            AddAnalog("A2", "PI1160", 2, 0, "bar(g)", 2, 0, 40);
+            AddAnalog("A2", "PDI1160", 4, 1, "bar(g)", 2, 0, 40);
+            AddAnalog("A2", "PI1166", 4, 2, "bar(g)", 2, 0, 16);
+            AddAnalog("A2", "PI1164", 4, 3, "bar(g)", 2, 0, 16);
+            #endregion
+
+            #region Ventile Digital
+            AddValve("A2", "VV1003", 2, 0, 0, false, false, false, true, true, 1);
+            AddValve("A2", "VV1008", 1, 1, 0, false, mon_cls, false, true, true, 1);
+            AddValve("A2", "VV1100", 1, 2, 0, false, mon_cls, false, true, true, 1);
+            AddValve("A2", "VV1101", 2, 2, 0, false, mon_cls, false, true, true, 1);
+            AddValve("A2", "VV1103", 1, 2, 1, false, mon_cls, false, true, true, 1);
+            AddValve("A2", "VV1104", 1, 1, 1, false, mon_cls, false, true, true, 1);
+            AddValve("A2", "VV1105", 2, 1, 0, false, mon_cls, false, true, true, 1);
+            AddValve("A2", "VV1106", 2, 2, 0, false, mon_cls, false, true, true, 1);
+            AddValve("A2", "VV1107", 2, 2, 0, false, mon_cls, false, true, true, 1);
+            AddValve("A2", "VV1108", 2, 1, 0, mon_opn, false, false, true, true, 1);
+            AddValve("A2", "VV1109", 2, 2, 0, false, mon_cls, false, true, true, 1);
+            AddValve("A2", "VV1195", 2, 2, 0, false, mon_cls, false, true, true, 1);
+            AddValve("A2", "VV1196", 2, 2, 0, false, mon_cls, false, true, true, 1);
+            AddValve("A2", "VV1200", 1, 2, 1, false, mon_cls, false, true, true, 1);
+            #endregion
+
+            #region Ventile Analog
+            AddValveControl("A2", "VV1000", 2, 2, 1);
+            AddValveControl("A2", "VV1001", 2, 1, 1);
+            AddValveControl("A2", "VV1002", 2, 2);
+            AddValveControl("A2", "VV1004", 2, 2, 1);
+            #endregion
+
+            #region Motoren
+            AddMotorControl("A2", "AG110-M001", 1, 1, 1, "rpm", 1, mon_on, false, 11);
+            #endregion
+
+            #region PID
+            AddPidControl("A2", "TIC-1174", 1, "°C", 1);
+            AddPidControl("A2", "TIC-1176", 1, "°C", 1);
+            AddPidControl("A2", "PIC-1164", 1, "bar(g)", 1);
+            #endregion
+
+            #region Operations & Phases
+            // Operation Charge
+            AddPH("A2", "OP2_Charge", "PH_Charge_Black_run");
+            AddPH("A2", "OP2_Charge", "PH_Charge_Educt");
+            AddPH("A2", "OP2_Charge", "PH_Charge_Catalyst", 1, false, 0, 300, 0, "L");
+            AddPH("A2", "OP2_Charge", "PH_Charge_CIP");
+            // Operation discharge
+            AddPH("A2", "OP2_Discharge", "PH_Filtration");
+            AddPH("A2", "OP2_Discharge", "PH_Discharge");
+            // Operation pressure
+            AddPH("A2", "OP2_Pressure", "PH_Blanketing");
+            AddPH("A2", "OP2_Pressure", "PH_Re-Inert");
+            AddPH("A2", "OP2_Pressure", "PH_H2-replace");
+            AddPH("A2", "OP2_Pressure", "PH_N2-replace");
+            AddPH("A2", "OP2_Pressure", "PH_Reaction", 2, false, 0.5, 10, 1, "bar(g)", "", false, 5, 1000, 0, "min");
+            AddPH("A2", "OP2_Pressure", "PH_Vent");
+            // Operation Agitate
+            AddPH("A2", "OP2_Agitate", "PH_Agitate", 1, false, 0, 470, 0, "rpm");
+            // Operation Heating Cooling
+            AddPH("A2", "OP2_Heating_Cooling", "PH_Jacket", 1, false, -25, 140, 0, "°C");
+            AddPH("A2", "OP2_Heating_Cooling", "PH_Internal", 1, false, -25, 140, 0, "°C");
+            #endregion
+
+            #endregion
+#endif
+
 #if false
                 // units to skip generate
                 

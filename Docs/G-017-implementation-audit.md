@@ -169,11 +169,11 @@ writer changes a previous-scan read to a same-scan read. Both must reject
 category grouping unless dependencies are explicitly reconciled. Conflicting
 writes must also retain order. Independent networks can group stably.
 
-These primitives do not yet contain the complete executable statement model,
-source renderers, managed-source ownership protocol or live import backend.
-Their tests do not establish backend parity. The runtime generator does not use
-them yet, and its prompt remains operation-interlock-only to avoid advertising
-unavailable scope.
+The planning primitives now feed a supported FB/A/O network adapter and body
+renderers described below. They do not yet cover the phase template's complete
+control flow, managed-source ownership protocol or live import lifecycle.
+Their tests do not establish complete backend parity. The runtime generator does
+not use them yet; the prompt remains operation-interlock-only.
 
 ## Prepared control routing and read-only configuration inspection
 
@@ -200,6 +200,49 @@ preconditions. It does not modify the DB or apply/authorize a migration. Existin
 nested CFG requires explicit UDT/value reconciliation rather than rebuilding
 blindly; managed idempotent regeneration remains outstanding.
 
+## Supported network renderers and configuration artifacts
+
+`GeneratedNetworkModel` adapts the explicitly supported generator FB/A/O grammar
+into immutable expressions, scoped symbols, invocations and output assignments.
+It is not an arbitrary manual FBD decompiler. Call types must be registered by
+the owner. Unknown instructions/pins, dangling or duplicate drivers, unsupported
+access forms, cycles and wires outside the supported grammar reject with stable
+network identity and original title. FB outputs feed consumers in dependency
+order; fan-out and output negation do not execute the FB twice. Unconnected
+parameters remain unassigned; InOut requires an unnegated writable symbol.
+
+The FBD renderer retains the validated network snapshot. The readable SCL and
+`StructuredTextBodyRenderer` render the same model. Tokenized SCL follows the
+working repository StructuredText/v3 representation, allowing enclosing XML
+interface metadata, multilingual instance comments and instruction versions to
+be retained instead of flattening them into source declarations. Both SCL
+representations are compared by an independent fixture token reader. PLC import,
+EN-disabled output timing and independent stateful-call ordering still require
+Siemens validation; these fixtures alone are not a PLC equivalence proof.
+
+`GeneratedBlockBody` supplies Devices/category/original-title SCL nesting and
+FBD structural group headers without moving a device across a non-device scan
+boundary. The scheduling guard includes enclosing-instance versus member-field
+conflicts, in addition to exact read/write hazards. FBD headers remain separate
+from device descriptions on Static declarations.
+
+`ConfigurationArtifacts` serializes exact ordered configuration leaves into
+`udtCfg_<SafeUnit>` and expanded cfgData instance overrides, retaining nested
+metadata/start values and per-leaf remanence. Its immutable DB proposal retains
+all legacy/manual members and rejects an existing target member. Its prepared
+binding pass adds Unit Input CFG, connects the Plant to cfgData.<SafeUnit> and
+connects actual base/monitor CFG pins to local CFG.<instance>, without implicitly
+creating any DB member. Empty configurations emit neither UDT nor CFG member.
+Legacy application and managed nested reconciliation remain separate work.
+
+Expanded verification covers actual seven-family device networks, monitors and
+helpers in both staging modes/language options and v4/v5 reopened XML. It checks
+FBD snapshot preservation, SCL source/token parity, exact category order, typed
+CFG binding idempotence and absence of DB side effects. UDT and expanded DB
+member interfaces validate against the installed Siemens Interface/v5 XSD.
+New standalone command: `powershell -NoProfile -ExecutionPolicy Bypass -File
+Tests/Verify-GeneratedNetworkModel.ps1`.
+
 `Tests/Verify-ModularControlRouting.ps1` exercises this pass and configuration
 inspection on actual seven-family device Add fixtures plus bare Unit/Operation
 models, two phases, both staging/language options, v4/v5 and repeated reloads.
@@ -213,8 +256,9 @@ preconditions/collisions. Runtime activation and backend parity are not tested.
 1. Core library contract exports are now present and checked. Complete the
    executable statement/dependency audit, including phase stateful helpers and
    EN behavior, without guessing compiler instruction semantics.
-2. Complete the supported semantic statement model and actual Add/constructor
-   adapters, then both renderers and independent parity fixtures. Do not infer
+2. Extend the supported network model/renderers to complete phase control flow
+   and the finalized Add/constructor lifecycle. Complete independent semantic
+   parity fixtures. Do not infer
    arbitrary manual code from old XML or mark converted bodies as owned.
 3. Integrate the prepared Unit/Operation/Plant routing and configuration inspection
    into the finalized batch lifecycle; render the per-unit UDT/CFG interface.
@@ -240,9 +284,9 @@ above. A passing C# build or planning test does not change that status.
 | --- | --- | --- |
 | AC-1 General language scope | Not tested | General selector/renderers not implemented or activated |
 | AC-2 Equivalent interfaces/routing/CFG | Not tested | XML control preparation verified; CFG interfaces/backends not integrated |
-| AC-3 Device grouping/presentation | Not tested | Pure safe scheduling verified; backend presentation remains |
-| AC-4 Executable semantic/backend parity | Not tested | Dependency foundations tested, complete statement model/renderers remain |
-| AC-5 Complete per-unit CFG generation | Not tested | Actual seven-family ownership inventory and Input direction verified; UDT/DB bindings remain |
+| AC-3 Device grouping/presentation | Not tested | Seven-family grouping and SCL/FBD presentation verified offline; runtime remains |
+| AC-4 Executable semantic/backend parity | Not tested | Supported FB/A/O adapter/renderers verified; complete phase/control-flow parity remains |
+| AC-5 Complete per-unit CFG generation | Not tested | Seven-family UDT/DB serialization, schema and typed bindings verified; runtime/reconciliation remain |
 | AC-6 Protected legacy migration | Not tested | Read-only inventory/precondition/collision checks pass; end-to-end reviewed migration remains |
 | AC-7 Empty/PID/prior-feature runtime behavior | Not tested | Prior suites pass; new modular runtime paths not activated |
 | AC-8 Complete builds/parity/live validation reporting | Not tested | V21 x64/AnyCPU and all seven offline suites pass; full backend parity absent, V20 APIs absent, live validation not run |

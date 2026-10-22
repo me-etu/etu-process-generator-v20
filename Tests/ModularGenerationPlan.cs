@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Xml.Linq;
+using System.Xml.Schema;
+using System.IO;
 using TIA_LIB.Generation;
 
 public static class ModularGenerationPlanTests
@@ -56,6 +58,16 @@ public static class ModularGenerationPlanTests
             snapshot.Descendants("Member").Any(m => (string)m.Attribute("Name") == "Manual"), "Configuration metadata/start value/manual field lost.");
         snapshot.RemoveAll();
         Check(digital.Member.Attribute("Datatype") != null, "Configuration metadata was not copied immutably.");
+        var serialized = new ConfigurationArtifacts(config);
+        var schema = new XmlSchemaSet();
+        const string interfaceNs = "http://www.siemens.com/automation/Openness/SW/Interface/v5";
+        schema.Add(interfaceNs, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Siemens/Automation/Portal V21/PublicAPI/V21/Schemas/SW.InterfaceSections_v5.xsd"));
+        schema.Compile();
+        new XDocument(new XElement(serialized.Udt.Descendants(XName.Get("Sections", interfaceNs)).First())).Validate(schema, (sender, error) => { throw error.Exception; });
+        new XDocument(new XElement(XName.Get("Sections", interfaceNs), new XElement(XName.Get("Section", interfaceNs),
+            new XAttribute("Name", "Static"), serialized.DatablockMember))).Validate(schema, (sender, error) => { throw error.Exception; });
+        var emptyArtifacts = new ConfigurationArtifacts(new UnitConfigurationPlan("Empty", new ConfigurationLeaf[0]));
+        Check(emptyArtifacts.Udt == null && emptyArtifacts.DatablockMember == null && emptyArtifacts.RequiredTypes.Count == 0, "Empty unit acquired a CFG artifact.");
         Check(!new UnitConfigurationPlan("Empty", new ConfigurationLeaf[0]).HasConfiguration, "Empty unit acquired configuration.");
         Check(new UnitConfigurationPlan("PID-only", new[] { Leaf("PID-only", "PIC-1", "typePIDCfg") }).HasConfiguration, "PID-only unit lost configuration.");
         Reject(() => new UnitConfigurationPlan("A_2", leaves.Concat(new[] { Leaf("A_2", "DI_X", "typePIDCfg") })), "collision");
@@ -81,6 +93,9 @@ public static class ModularGenerationPlanTests
             Network("A", DeviceCategory.Analog_Sensors, new string[0], new[] { "Output" }),
             Network("D", DeviceCategory.Digital_Sensors, new string[0], new[] { "Output" }) }), "scan dependencies");
         Reject(() => DeviceSchedule.Group(new[] { independent[0], independent[0] }), "identity");
+        Reject(() => DeviceSchedule.Group(new[] {
+            Network("A", DeviceCategory.Analog_Sensors, new string[0], new[] { "#\"Instance\"" }),
+            Network("D", DeviceCategory.Digital_Sensors, new[] { "#\"Instance\".\"Q\"" }, new string[0]) }), "scan dependencies");
         try { new ScheduledNetwork("bad", "Title\nEND_REGION", DeviceCategory.Motors_Direct, new string[0], new string[0]); throw new Exception("Invalid region accepted."); }
         catch (ArgumentException) { }
 

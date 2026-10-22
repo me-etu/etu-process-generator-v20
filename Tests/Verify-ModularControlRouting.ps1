@@ -12,7 +12,7 @@ $scratch = Join-Path ([IO.Path]::GetTempPath()) ('G017-controls-' + [Guid]::NewG
 [void][IO.Directory]::CreateDirectory($scratch)
 $testAssembly = Join-Path $scratch 'ModularControlRoutingTests.dll'
 $compiler = "$env:ProgramFiles/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/Roslyn/csc.exe"
-& $compiler /nologo /target:library /langversion:7.3 "/out:$testAssembly" "/reference:$library" "/reference:$ApiDirectory/Siemens.Engineering.Base.dll" "/reference:$ApiDirectory/Siemens.Engineering.Step7.dll" "/reference:$ApiDirectory/Siemens.Engineering.WinCCUnified.dll" /reference:System.Xml.Linq.dll "$PSScriptRoot/DeviceStagingInputs.cs" "$PSScriptRoot/SfcHss.cs" "$PSScriptRoot/ModularControlRouting.cs"
+& $compiler /nologo /target:library /langversion:7.3 "/out:$testAssembly" "/reference:$library" "/reference:$ApiDirectory/Siemens.Engineering.Base.dll" "/reference:$ApiDirectory/Siemens.Engineering.Step7.dll" "/reference:$ApiDirectory/Siemens.Engineering.WinCCUnified.dll" /reference:System.Xml.Linq.dll "$PSScriptRoot/DeviceStagingInputs.cs" "$PSScriptRoot/SfcHss.cs" "$PSScriptRoot/ModularControlRouting.cs" "$PSScriptRoot/GeneratedNetworkModel.cs"
 if ($LASTEXITCODE) { throw 'Offline modular control fixture compilation failed.' }
 [void][Reflection.Assembly]::LoadFrom($testAssembly)
 # Bypass all Portal/Project/Unit/DB constructors. The fake Portal has only in-memory DB

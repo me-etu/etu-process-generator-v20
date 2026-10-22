@@ -319,6 +319,11 @@ namespace TIA_LIB.Xml
 
         internal void ConfigureBooleanInput(XmlCall call, string pinName, SignalReference reference, bool removeUnusedOldReference = false)
         {
+            ConfigureSymbolInput(call, pinName, "Bool", reference, removeUnusedOldReference);
+        }
+
+        internal void ConfigureSymbolInput(XmlCall call, string pinName, string datatype, SignalReference reference, bool removeUnusedOldReference = false)
+        {
             // Legacy v4 construction has unqualified children; exports are qualified.
             Func<XElement, string, bool> named = (e, name) => e.Name == _Namespace + name || e.Name == XName.Get(name);
             Func<string, InvalidOperationException> invalid = detail => new InvalidOperationException(
@@ -358,11 +363,11 @@ namespace TIA_LIB.Xml
                 source.Components.SequenceEqual(reference.Value.Split('|'));
             var negations = call.Xml.Elements().Where(e => named(e, "Negated") && (string)e.Attribute("Name") == pinName).ToArray();
             bool parameterCorrect = parameters.Length == 1 && (string)parameters[0].Attribute("Section") == "Input" &&
-                (string)parameters[0].Attribute("Type") == "Bool";
+                (string)parameters[0].Attribute("Type") == datatype;
             if (correct && parameterCorrect && negations.Length == 0 && !call.Negations.Contains(pinName))
             {
                 // Exported fan-out wires are not indexed by the legacy single-pin parser.
-                var existing = call.GetParameter(pinName, "Input", "Bool");
+                var existing = call.GetParameter(pinName, "Input", datatype);
                 if (!wire.Contains(existing)) wire.Pins.Add(existing);
                 wire.Value = source;
                 UIdIdentCon[call.UId + "|" + pinName] = source.UId.ToString();
@@ -370,12 +375,12 @@ namespace TIA_LIB.Xml
                 return;
             }
 
-            var parameter = call.GetParameter(pinName, "Input", "Bool");
+            var parameter = call.GetParameter(pinName, "Input", datatype);
             if (parameters.Length == 0) parameter.Xml.Name = _Namespace + "Parameter";
             parameter.Section = "Input";
-            parameter.Type = "Bool";
+            parameter.Type = datatype;
             parameter.Xml.SetAttributeValue("Section", "Input");
-            parameter.Xml.SetAttributeValue("Type", "Bool");
+            parameter.Xml.SetAttributeValue("Type", datatype);
             foreach (var negation in negations) negation.Remove();
             call.Negations.RemoveAll(n => n == pinName);
             parameter.Neg = null;

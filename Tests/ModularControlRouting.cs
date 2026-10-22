@@ -158,6 +158,51 @@ public static class ModularControlRoutingTests
                 }
                 Check(manualXml == project.Plant.FindNetwork("Manual").Xml.ToString(), "Manual Plant content changed.");
                 Check(dbs.Count == SiemensPortal.Current.GlobalDatablocks.Count && dbs.All(p => SiemensPortal.Current.GlobalDatablocks[p.Key].SectionList.ToString() == p.Value), "Routing mutated/created a global DB member.");
+                var artifacts = new ConfigurationArtifacts(migration.Configuration);
+                string artifactsSnapshot = artifacts.Udt.ToString() + artifacts.DatablockMember.ToString();
+                Check(artifacts.RequiredTypes.Count == 7, "Configuration type dependencies differ.");
+                var udtLeaves = artifacts.Udt.Descendants().First(e => e.Name.LocalName == "Section").Elements().ToArray();
+                Check(udtLeaves.Select(e => (string)e.Attribute("Name")).SequenceEqual(migration.Configuration.Leaves.Select(l => l.Instance)), "UDT lost declaration order or configuration leaves.");
+                Check(udtLeaves.Single(e => (string)e.Attribute("Name") == "PID-1").Descendants().Single(e => e.Name.LocalName == "StartValue").Value == "false", "UDT lost nested offline value.");
+                var proposed = artifacts.ProposeDatablockSection(originalCfg);
+                Check(proposed.Elements().Count() == originalCfg.Elements().Count() + 1 && originalCfg.ToString() == cfgSnapshot,
+                    "DB proposal changed/deleted legacy members or the original snapshot.");
+                Check(originalCfg.Elements().Zip(proposed.Elements(), (a, b) => XNode.DeepEquals(a, b)).All(v => v), "DB proposal changed existing manual/legacy data.");
+                artifacts.Udt.RemoveNodes(); artifacts.DatablockMember.RemoveNodes();
+                Check(artifactsSnapshot == artifacts.Udt.ToString() + artifacts.DatablockMember.ToString(), "Artifact snapshots are mutable.");
+                typeof(ConfigurationArtifacts).GetMethod("Bind", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { project.Plant, unit, migration.Configuration });
+                Reference(project.Plant.FindNetwork("A2").Calls["A2"], "CFG", "cfgData|A2", true);
+                foreach (var device in unit.Devices.Values)
+                {
+                    var method = typeof(TIA_LIB.Devices.GeneratedObject).GetMethod("ConfiguredDeviceCalls", BindingFlags.Instance | BindingFlags.NonPublic);
+                    foreach (var call in (IEnumerable<XmlCall>)method.Invoke(device, null)) Reference(call, "CFG", "CFG|" + call.InstName);
+                }
+                var bound = project.Plant.Xml.ToString() + unit.Xml.ToString();
+                project.Plant.HasChanged = unit.HasChanged = false;
+                typeof(ConfigurationArtifacts).GetMethod("Bind", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { project.Plant, unit, migration.Configuration });
+                Check(bound == project.Plant.Xml.ToString() + unit.Xml.ToString() && !project.Plant.HasChanged && !unit.HasChanged,
+                    "Configuration interface/bindings are not idempotent.");
+                Check(dbs.All(p => SiemensPortal.Current.GlobalDatablocks[p.Key].SectionList.ToString() == p.Value), "Configuration binding implicitly mutated global DBs.");
+                var logicalDevices = new List<GeneratedLogicalNetwork>();
+                foreach (var device in unit.Devices.Values)
+                {
+                    var network = unit.FindNetwork(device.TagName);
+                    var model = GeneratedNetworkModel.FromGeneratedFbd("A2/" + device.TagName, network.Name, network.Xml,
+                        new[] { "fbMonAn", "fbMonDi", "fbVlv2Out", "fbVlvCtrl", "fbMotS", "fbMotAn", "fbPIDCtrl", "fbIntlck7" });
+                    Check(model.Invocations.Count == network.Calls.Count, "Shared model lost device/helper calls: " + device.TagName);
+                    Check(XNode.DeepEquals(model.RenderFbd(), network.Xml), "FBD backend changed device network.");
+                    Check(model.RenderScl().Contains("REGION " + device.TagName), "SCL backend lost device title.");
+                    Check(model.Invocations.Select(c => c.Instance.Components[0]).Distinct().Count() == network.Calls.Count, "Device stateful calls duplicated.");
+                    logicalDevices.Add(new GeneratedLogicalNetwork(model, GeneratedBlockBody.CategoryFor(network.Calls[device.TagName].BlockName)));
+                }
+                var groupedBody = new GeneratedBlockBody(logicalDevices);
+                Check(groupedBody.Networks.Select(n => n.Body.Title).SequenceEqual(new[] { "DI-1", "AI-1", "V-1", "CV-1", "M-1", "MC-1", "PID-1" }), "Seven device groups differ from golden order.");
+                Check(groupedBody.RenderScl().Contains("REGION Devices\r\nREGION Digital_Sensors\r\nREGION DI-1"), "SCL nesting differs.");
+                var structured = new StructuredTextBodyRenderer().Render(groupedBody);
+                Check(System.Text.RegularExpressions.Regex.Replace(GeneratedNetworkModelTests.ReadStructuredText(structured), @"\s+", "") ==
+                    System.Text.RegularExpressions.Regex.Replace(groupedBody.RenderScl(), @"\s+", ""), "Seven-family SCL token/source parity differs.");
+                foreach (var groupedNetwork in groupedBody.RenderFbd())
+                    Check(groupedNetwork.Descendants("Text").Any(t => t.Value.StartsWith("[ETU group: Devices/")), "Missing FBD group presentation.");
             }
             Console.WriteLine("PASS: explicit controls and seven-family configuration migration inventory, metadata/value copies, preconditions/collisions, cyclic reset/manual preservation and repeated routing in both modes/languages/v4-v5. Runtime activation remains pending.");
         }

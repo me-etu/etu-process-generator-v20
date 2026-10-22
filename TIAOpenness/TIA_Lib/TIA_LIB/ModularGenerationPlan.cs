@@ -157,13 +157,20 @@ namespace TIA_LIB.Generation
             {
                 var a = original[first];
                 var b = original[second];
-                bool hazard = a.Writes.Intersect(b.Reads.Concat(b.Writes), StringComparer.OrdinalIgnoreCase).Any() ||
-                    a.Reads.Intersect(b.Writes, StringComparer.OrdinalIgnoreCase).Any();
+                bool hazard = Overlap(a.Writes, b.Reads.Concat(b.Writes)) || Overlap(a.Reads, b.Writes);
                 if (hazard && positions[a.Identity] > positions[b.Identity])
                     throw new InvalidOperationException("Device grouping changes scan dependencies: '" + a.Title + "' (" + a.Identity +
                         ") must remain before '" + b.Title + "' (" + b.Identity + "). Reconcile the schedule explicitly.");
             }
             return Array.AsReadOnly(grouped);
+        }
+
+        static bool Overlap(IEnumerable<string> first, IEnumerable<string> second)
+        {
+            // An FB invocation writes its instance state, including all output fields.
+            // A field read therefore conflicts with a write to its enclosing instance.
+            return first.Any(a => second.Any(b => string.Equals(a, b, StringComparison.OrdinalIgnoreCase) ||
+                a.StartsWith(b + ".", StringComparison.OrdinalIgnoreCase) || b.StartsWith(a + ".", StringComparison.OrdinalIgnoreCase)));
         }
     }
 

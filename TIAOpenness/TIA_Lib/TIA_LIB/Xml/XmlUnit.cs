@@ -81,14 +81,12 @@ namespace TIA_LIB.Xml
 
 
             //Sfc control unit
-            calledBlockName = "fbControlSfc";
-            network = FindNetwork("Unit sfc control");
+            bool isNewControl;
+            call = ConfigureSfcControl("Unit sfc control", "sfc_" + Name, out isNewControl);
+            network = call.Network;
 
-            if (network == null)
+            if (isNewControl)
             {
-                network = GetNetwork("Unit sfc control");
-                call = network.GetCall(calledBlockName, "FB", "LocalVariable", "sfc_" + Name);
-
                 network.SetParameter(call, "en", "Input", "Bool");
 
                 network.SetParameter(call, "isUnit", "Input", "Bool", "True");

@@ -616,6 +616,16 @@ These files are used by the simulator and are currently maintained manually. Aft
 
 ## Troubleshooting And Known Failure Modes
 
+### SFC controller HSS connection (G-016)
+
+The three constructor routes delegate to `XmlBlock.ConfigureSfcControl`: `XmlUnit` uses network `Unit sfc control` / instance `sfc_<unit>`; `XmlOperation` uses network `<operation>` / `sfc_<operation>`; `XmlPhase` uses its owning operation's network `Sfc control <phase>` / `sfc_<phase>`. The helper creates a call only when the network is new and otherwise requires the exact local `fbControlSfc` identity and Static declaration. Only fresh networks run the existing initializers. Cached AddUnit/AddOP/AddPH retain the configured calls.
+
+`XmlNetwork.ConfigureSfcHss` configures Input Bool HSS as a direct GlobalVariable with components F_Safe/HSS. It is independent of signal staging and FBD/SCL interlock selection. It recognizes legacy unqualified v4 construction and qualified v4/v5 export, while new HSS elements use the source namespace. It adds missing wiring, reconciles simple wrong/negated connections and leaves already correct wiring/XML/dirty state unchanged. Shared old operands and their other users remain intact; only the targeted endpoint moves. Multiple drivers and unsupported logic sources fail before mutation. HSS wire/access/open/negation caches stay consistent. Only duplicate HSS wire indexing is tolerated during parsing so the targeted operation can diagnose the ambiguity; unrelated duplicate indexing retains existing behavior.
+
+The target must have updated `fbControlSfc.Input HSS : Bool` and an existing `F_Safe.HSS : Bool`. HSS reference creation deliberately bypasses GetValueFromGlobalDB, which could otherwise add a missing member automatically. No hardware inventory, marker tags, unit interfaces, fallback member or library replacement is introduced; existing device PROT wiring is unchanged. Normal controller import errors include the prerequisite and preserve the original exception/XML path. Offline tests cannot confirm the supplied PLC FB's semantics or the live target's member/type compatibility.
+
+Run `Tests/Verify-SfcHss.ps1` against the rebuilt V21 library (default x64; use `-LibraryPath ./etu-process-generator-TiAv21/bin/Debug/TIA_LIB.dll` for AnyCPU). Tests invoke the executable shared call-resolution/configuration path on bare unit/operation XML objects, with constructor integration guards and actual cached Add methods. They bypass live Portal/unit/operation/phase constructors and never Upload/import. A disposable-project compile with the updated library remains the live acceptance step.
+
 ### Duplicate connections when adding devices to an existing unit
 
 A V21 import failure reporting a connection used multiple times can originate in unit alarm aggregation. The retained `fbBV130_B10_20.xml` (2026-10-22, AnyCPU output) has CompileUnit ID 3 at line 10498 with four wires driving `fbUnit.ALARM`: original wire 45 plus wires 64/70/76 added for TIC-1174, TIC-1176 and PIC-1164. Siemens internal part/connection identifiers in the exception are not the exported XML endpoint IDs.

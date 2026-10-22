@@ -16,17 +16,15 @@ namespace TIA_LIB.Xml
         {
             XmlCall call = null;
             Unit  = unit;
-            string calledBlockName;
             XmlNetwork network;
 
            //pHs selector
-            calledBlockName = "fbControlSfc";
-            network = FindNetwork(Name);
+            bool isNewControl;
+            call = ConfigureSfcControl(Name, "sfc_" + Name, out isNewControl);
+            network = call.Network;
             
-            if (network == null)
+            if (isNewControl)
             {
-                network = GetNetwork(Name);
-                call = network.GetCall(calledBlockName, "FB", "LocalVariable", "sfc_" + Name);
                 network.SetParameter(call, "en", "Input", "Bool");
                 network.SetParameter(call, "isUnit", "Input", "Bool", "False");
                 network.SetParameter(call, "isOp", "Input", "Bool", "True");

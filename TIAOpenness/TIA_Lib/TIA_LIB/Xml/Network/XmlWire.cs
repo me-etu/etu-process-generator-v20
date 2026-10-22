@@ -80,7 +80,10 @@ namespace TIA_LIB.Xml.Network
                     var parUid = identConList.ElementAt(0).Attribute("UId").Value;
                     var callUId = nameConList.ElementAt(0).Attribute("UId").Value;
 
-                    Network.UIdIdentCon.Add(callUId + "|" + parName, parUid);
+                    // Preserve ambiguous serialized wiring so targeted configuration can
+                    // diagnose it with block/network/instance context before any mutation.
+                    if (parName != "HSS" || !Network.UIdIdentCon.ContainsKey(callUId + "|" + parName))
+                        Network.UIdIdentCon.Add(callUId + "|" + parName, parUid);
                 }               
             }
 
@@ -91,7 +94,8 @@ namespace TIA_LIB.Xml.Network
                     var callUId = nameConList.ElementAt(0).Attribute("UId").Value;
                     var parName = nameConList.ElementAt(0).Attribute("Name").Value;
 
-                    Network.OpenConWires.Add(callUId + "|" + parName, this);
+                    if (parName != "HSS" || !Network.OpenConWires.ContainsKey(callUId + "|" + parName))
+                        Network.OpenConWires.Add(callUId + "|" + parName, this);
                 }
             }
         }
@@ -109,6 +113,16 @@ namespace TIA_LIB.Xml.Network
             var identCon = new XElement(Network.ElementName("IdentCon"));
             identCon.SetAttributeValue("UId", value.UId);
             Xml.Add(identCon);
+        }
+
+        internal void ReplaceIdentCon(XmlAccess value)
+        {
+            Xml.Elements().Where(e => e.Name == _Namespace + "IdentCon" || e.Name == XName.Get("IdentCon") ||
+                e.Name == _Namespace + "OpenCon" || e.Name == XName.Get("OpenCon")).Remove();
+            _OpenCon = null;
+            _IdentCon = new XElement(_Namespace + "IdentCon", new XAttribute("UId", value.UId));
+            Xml.AddFirst(_IdentCon);
+            Value = value;
         }
 
         public void AddNameCon(XmlPin pin)

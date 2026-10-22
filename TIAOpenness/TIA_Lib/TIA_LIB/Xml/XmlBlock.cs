@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using TIA_LIB.Xml.Network;
 
 namespace TIA_LIB.Xml
 {
@@ -109,6 +110,32 @@ namespace TIA_LIB.Xml
             }
 
             return member;
+        }
+
+        internal XmlCall ConfigureSfcControl(string networkName, string instanceName, out bool isNew)
+        {
+            var network = FindNetwork(networkName);
+            isNew = network == null;
+            XmlCall call;
+            if (isNew)
+            {
+                network = GetNetwork(networkName);
+                call = network.GetCall("fbControlSfc", "FB", "LocalVariable", instanceName);
+            }
+            else if (!network.Calls.TryGetValue(instanceName, out call) || call.BlockName != "fbControlSfc" ||
+                call.BlockType != "FB" || call.InstType != "LocalVariable")
+            {
+                throw new InvalidOperationException("Cannot configure HSS in block '" + Name + "', network '" + networkName +
+                    "', instance '" + instanceName + "': expected the existing local fbControlSfc FB call. Reconcile the call explicitly.");
+            }
+
+            XmlLocalInstance instance;
+            if (!LocalInstance.TryGetValue(instanceName, out instance) || instance.Datatype.Trim('"') != "fbControlSfc")
+                throw new InvalidOperationException("Cannot configure HSS in block '" + Name + "', network '" + networkName +
+                    "', instance '" + instanceName + "': expected a matching Static fbControlSfc declaration. Reconcile explicitly.");
+
+            network.ConfigureSfcHss(call);
+            return call;
         }
 
         public void SetLocalInstanceMemberComment(string instanceName, string sectionName, string memberName, string datatype, string description)
@@ -286,7 +313,16 @@ namespace TIA_LIB.Xml
 
             Xml.Save(FileName);
 
-            SiemensPortal.Current.ImportPlcBlock(UserGroup, _Name, FileName);
+            try
+            {
+                SiemensPortal.Current.ImportPlcBlock(UserGroup, _Name, FileName);
+            }
+            catch (Exception ex) when (Networks.Values.Any(n => n.Calls.Values.Any(c => c.BlockName == "fbControlSfc")))
+            {
+                throw new InvalidOperationException("Import failed for block '" + Name + "' (XML: " + FileName +
+                    "). For generated SFC controllers, verify the target library has fbControlSfc.Input HSS : Bool and an existing F_Safe.HSS : Bool. " +
+                    "The original import diagnostic is retained as the inner exception; the generator does not replace the library or create a fallback HSS signal.", ex);
+            }
 
            
 

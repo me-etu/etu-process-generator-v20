@@ -183,6 +183,74 @@ public static class DeviceStagingInputTests
         network.Block.Networks.Remove(network.Name);
         return new XmlNetwork(network.Block, exported);
     }
+    private static GeneratedObject AddDevice(PlcProject project, string family, string name, bool edited = false)
+    {
+        switch (family)
+        {
+            case "Analog": return project.AddAnalog("A2", name, unity: edited ? "bar" : "%");
+            case "Digital": return project.AddDigital("A2", name, qualityBit: edited);
+            case "Valve": return project.AddValve("A2", name, mon_cls: true, qualityBit: edited);
+            case "ValveControl": return project.AddValveControl("A2", name);
+            case "Motor": return project.AddMotor("A2", name);
+            case "MotorControl": return project.AddMotorControl("A2", name);
+            case "PidControl": return project.AddPidControl("A2", name, unity: edited ? "bar" : "%");
+            default: throw new Exception(family);
+        }
+    }
+    private static void UniqueConnections(XmlUnit unit)
+    {
+        foreach (var network in unit.Networks.Values)
+        {
+            var duplicate = network.Xml.Descendants().Where(e => e.Name.LocalName == "NameCon")
+                .GroupBy(e => (string)e.Attribute("UId") + "|" + (string)e.Attribute("Name"))
+                .FirstOrDefault(g => g.Count() > 1);
+            Assert(duplicate == null, "Duplicate connection in " + network.Name + ": " + (duplicate == null ? "" : duplicate.Key));
+        }
+    }
+    private static void RegenerationFixtures()
+    {
+        string[] families = { "Analog", "Digital", "Valve", "ValveControl", "Motor", "MotorControl", "PidControl" };
+        foreach (SignalStagingMode mode in Enum.GetValues(typeof(SignalStagingMode)))
+        foreach (string version in new[] { "v4", "v5" })
+        {
+            PlcProject.StagingMode = mode;
+            var project = Project();
+            foreach (var family in families) AddDevice(project, family, family + "_Original");
+            var unit = project.Plant.GetUnit("A2");
+            UniqueConnections(unit);
+            var originalLogicIds = unit.FindNetwork("A2").Logics.Keys.OrderBy(i => i).ToArray();
+            unit.FindNetwork("A2").SetComment("Manual unit status comment");
+            for (int pass = 1; pass <= 2; pass++)
+            {
+                foreach (var network in unit.Networks.Values.ToArray()) Reload(network, version);
+                unit.Devices.Clear();
+                // Keep exported existing wires verbatim while adding new status inputs.
+                var originalWires = unit.FindNetwork("A2").Wires.Values.Select(w => w.Xml.ToString()).ToArray();
+                foreach (var family in families)
+                {
+                    AddDevice(project, family, family + "_Original", true);
+                    UniqueConnections(unit);
+                    AddDevice(project, family, family + "_Added" + pass);
+                    UniqueConnections(unit);
+                }
+                Assert(originalLogicIds.SequenceEqual(unit.FindNetwork("A2").Logics.Keys.OrderBy(i => i)), "Adding devices replaced/duplicated unit status OR blocks.");
+                Assert(originalWires.All(w => unit.FindNetwork("A2").Wires.Values.Any(existing => existing.Xml.ToString() == w)), "Existing unit status wiring changed.");
+                Assert(unit.FindNetwork("A2").Xml.Descendants("Text").Any(t => t.Value == "Manual unit status comment"), "Manual unit comment changed.");
+            }
+            var unitNetwork = unit.FindNetwork("A2");
+            var unitCall = unitNetwork.Calls["A2"];
+            Assert(unitNetwork.Xml.Descendants().Count(e => e.Name.LocalName == "NameCon" &&
+                (string)e.Attribute("UId") == unitCall.UId.ToString() && (string)e.Attribute("Name") == "ALARM") == 1,
+                "Expected exactly one unit alarm connection.");
+            foreach (string family in families)
+            foreach (string suffix in new[] { "_Original", "_Added1", "_Added2" })
+            {
+                var reference = unitNetwork.Access.Values.OfType<XmlGlobal>().Where(a => a.Value == family + suffix + "|QERR").ToArray();
+                Assert(reference.Length == 1 && unitNetwork.Wires.Values.Any(w => w.Value == reference[0]), "Missing/duplicated device alarm contribution: " + family + suffix);
+            }
+            Console.WriteLine("PASS: seven device families edited/added across two export/reopen passes: " + mode + "/" + version);
+        }
+    }
     public static void Run(string root)
     {
         string previousDirectory = Directory.GetCurrentDirectory();
@@ -190,6 +258,7 @@ public static class DeviceStagingInputTests
         {
             Directory.SetCurrentDirectory(Path.Combine(root, "TIAOpenness/TIA_Lib/TIA_LIB"));
             PidFixtures(root);
+            RegenerationFixtures();
             foreach (SignalStagingMode mode in new[] { SignalStagingMode.GeneratedDbUdt, SignalStagingMode.MarkerMemory })
             {
                 PlcProject.StagingMode = mode;

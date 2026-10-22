@@ -616,6 +616,12 @@ These files are used by the simulator and are currently maintained manually. Aft
 
 ## Troubleshooting And Known Failure Modes
 
+### Duplicate connections when adding devices to an existing unit
+
+A V21 import failure reporting a connection used multiple times can originate in unit alarm aggregation. The retained `fbBV130_B10_20.xml` (2026-10-22, AnyCPU output) has CompileUnit ID 3 at line 10498 with four wires driving `fbUnit.ALARM`: original wire 45 plus wires 64/70/76 added for TIC-1174, TIC-1176 and PIC-1164. Siemens internal part/connection identifiers in the exception are not the exported XML endpoint IDs.
+
+The device constructors' aggregation searches still assumed FlgNet/v4 after the shared reader had been made namespace-aware. On exported v5 networks they missed the existing OR and appended another one for every new device. Analog, Digital, Valve, ValveControl, Motor, MotorControl and PidControl now switch their aggregation namespace to the unit network's `SourceNamespace` before looking up ALARM/WARN. Existing logic/wires are reused; no cleanup of arbitrary old/manual content is performed. `Verify-DeviceStagingInputs.ps1` exercises actual Add methods, editing/reopening existing devices and adding all seven families over two qualified v4/v5 cycles, both staging modes, unique endpoints, original OR identity/wire preservation, manual comments and every device's QERR contribution. No live generator/import is part of these tests.
+
 ### Device descriptions return as network comments
 
 Check the active branch's source, not only session memory. `fix-v21-phase-template-headers` was based on main at `2ecfd32`, while the instance-comment implementation existed only in `6dee8e1` on `g-012-device-instance-comments`. Building the older branch restored old network-comment behavior. That dependency is now integrated into the current working tree while retaining subsequent fixes. All seven Add methods call SetDeviceDescription after device lookup, constructors call ConfigureInstanceDescription, and XmlLocalInstance.SetDeclarationComment updates the outer Static comment with namespace/culture preservation. Existing network comments are deliberately retained; these descriptions are no longer newly written there. Run `Tests/Verify-DeviceInstanceComments.ps1` with the other regression scripts on both output folders to detect recurrence.

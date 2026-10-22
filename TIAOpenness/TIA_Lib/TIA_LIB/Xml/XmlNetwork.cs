@@ -314,15 +314,20 @@ namespace TIA_LIB.Xml
         }
         internal void ConfigureSfcHss(XmlCall call)
         {
+            ConfigureBooleanInput(call, "HSS", new SignalReference("F_Safe|HSS", true));
+        }
+
+        internal void ConfigureBooleanInput(XmlCall call, string pinName, SignalReference reference, bool removeUnusedOldReference = false)
+        {
             // Legacy v4 construction has unqualified children; exports are qualified.
             Func<XElement, string, bool> named = (e, name) => e.Name == _Namespace + name || e.Name == XName.Get(name);
             Func<string, InvalidOperationException> invalid = detail => new InvalidOperationException(
-                "Cannot configure HSS in block '" + Block.Name + "', network '" + Name + "', instance '" + call.InstName +
-                "': " + detail + ". Reconcile this HSS connection explicitly; unrelated wiring is preserved.");
+                "Cannot configure " + pinName + " in block '" + Block.Name + "', network '" + Name + "', instance '" + call.InstName +
+                "': " + detail + ". Reconcile this input connection explicitly; unrelated wiring is preserved.");
             if (Parts == null || _Wires == null) throw invalid("no editable FBD Parts/Wires containers");
-            var parameters = call.CallInfo.Elements().Where(e => named(e, "Parameter") && (string)e.Attribute("Name") == "HSS").ToArray();
+            var parameters = call.CallInfo.Elements().Where(e => named(e, "Parameter") && (string)e.Attribute("Name") == pinName).ToArray();
             var endpoints = _Wires.Descendants().Where(e => named(e, "NameCon") &&
-                (string)e.Attribute("UId") == call.UId.ToString() && (string)e.Attribute("Name") == "HSS").ToArray();
+                (string)e.Attribute("UId") == call.UId.ToString() && (string)e.Attribute("Name") == pinName).ToArray();
             if (parameters.Length > 1 || endpoints.Length > 1) throw invalid("multiple HSS parameters or drivers");
 
             XmlWire wire = null;
@@ -349,43 +354,44 @@ namespace TIA_LIB.Xml
             }
 
             var source = oldAccess as XmlGlobal;
-            bool correct = source != null && (string)source.Xml.Attribute("Scope") == "GlobalVariable" &&
-                source.Components.SequenceEqual(new[] { "F_Safe", "HSS" });
-            var negations = call.Xml.Elements().Where(e => named(e, "Negated") && (string)e.Attribute("Name") == "HSS").ToArray();
+            bool correct = source != null && (string)source.Xml.Attribute("Scope") == (reference.IsGlobal ? "GlobalVariable" : "LocalVariable") &&
+                source.Components.SequenceEqual(reference.Value.Split('|'));
+            var negations = call.Xml.Elements().Where(e => named(e, "Negated") && (string)e.Attribute("Name") == pinName).ToArray();
             bool parameterCorrect = parameters.Length == 1 && (string)parameters[0].Attribute("Section") == "Input" &&
                 (string)parameters[0].Attribute("Type") == "Bool";
-            if (correct && parameterCorrect && negations.Length == 0 && !call.Negations.Contains("HSS"))
+            if (correct && parameterCorrect && negations.Length == 0 && !call.Negations.Contains(pinName))
             {
                 // Exported fan-out wires are not indexed by the legacy single-pin parser.
-                var existing = call.GetParameter("HSS", "Input", "Bool");
+                var existing = call.GetParameter(pinName, "Input", "Bool");
                 if (!wire.Contains(existing)) wire.Pins.Add(existing);
                 wire.Value = source;
-                UIdIdentCon[call.UId + "|HSS"] = source.UId.ToString();
-                OpenConWires.Remove(call.UId + "|HSS");
+                UIdIdentCon[call.UId + "|" + pinName] = source.UId.ToString();
+                OpenConWires.Remove(call.UId + "|" + pinName);
                 return;
             }
 
-            var parameter = call.GetParameter("HSS", "Input", "Bool");
+            var parameter = call.GetParameter(pinName, "Input", "Bool");
             if (parameters.Length == 0) parameter.Xml.Name = _Namespace + "Parameter";
             parameter.Section = "Input";
             parameter.Type = "Bool";
             parameter.Xml.SetAttributeValue("Section", "Input");
             parameter.Xml.SetAttributeValue("Type", "Bool");
             foreach (var negation in negations) negation.Remove();
-            call.Negations.RemoveAll(n => n == "HSS");
+            call.Negations.RemoveAll(n => n == pinName);
             parameter.Neg = null;
 
             if (!correct)
             {
                 source = Access.Values.OfType<XmlGlobal>().FirstOrDefault(a =>
-                    (string)a.Xml.Attribute("Scope") == "GlobalVariable" && a.Components.SequenceEqual(new[] { "F_Safe", "HSS" }));
+                    (string)a.Xml.Attribute("Scope") == (reference.IsGlobal ? "GlobalVariable" : "LocalVariable") && a.Components.SequenceEqual(reference.Value.Split('|')));
                 if (source == null)
                 {
                     // Reference the required existing PLC member, without creating or editing
                     // F_Safe via GetValueFromGlobalDB. Import/compile validates the dependency.
-                    var xml = new XElement(_Namespace + "Access", new XAttribute("UId", ++MaxUId), new XAttribute("Scope", "GlobalVariable"),
-                        new XElement(_Namespace + "Symbol", new XElement(_Namespace + "Component", new XAttribute("Name", "F_Safe")),
-                            new XElement(_Namespace + "Component", new XAttribute("Name", "HSS"))));
+                    var xml = new XElement(_Namespace + "Access", new XAttribute("UId", ++MaxUId),
+                        new XAttribute("Scope", reference.IsGlobal ? "GlobalVariable" : "LocalVariable"),
+                        new XElement(_Namespace + "Symbol", reference.Value.Split('|').Select(component =>
+                            new XElement(_Namespace + "Component", new XAttribute("Name", component)))));
                     source = new XmlGlobal(this, xml);
                     Parts.AddFirst(xml);
                 }
@@ -398,7 +404,7 @@ namespace TIA_LIB.Xml
                     if (wire != null)
                     {
                         endpoints[0].Remove();
-                        wire.Pins.RemoveAll(p => p.UId == call.UId && p.Name == "HSS");
+                        wire.Pins.RemoveAll(p => p.UId == call.UId && p.Name == pinName);
                     }
                     wire = new XmlWire(this);
                     wire.AddIdentCon(source);
@@ -409,8 +415,14 @@ namespace TIA_LIB.Xml
             }
             if (!wire.Contains(parameter)) wire.Pins.Add(parameter);
             wire.Value = source;
-            UIdIdentCon[call.UId + "|HSS"] = source.UId.ToString();
-            OpenConWires.Remove(call.UId + "|HSS");
+            UIdIdentCon[call.UId + "|" + pinName] = source.UId.ToString();
+            OpenConWires.Remove(call.UId + "|" + pinName);
+            if (removeUnusedOldReference && oldAccess != null && oldAccess != source &&
+                !_Wires.Descendants().Any(e => named(e, "IdentCon") && (string)e.Attribute("UId") == oldAccess.UId.ToString()))
+            {
+                oldAccess.Xml.Remove();
+                Access.Remove(oldAccess.UId);
+            }
             Block.HasChanged = true;
         }
 

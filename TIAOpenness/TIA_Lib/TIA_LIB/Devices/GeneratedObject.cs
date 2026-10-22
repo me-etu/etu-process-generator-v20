@@ -2,6 +2,8 @@
 using Siemens.Engineering.SW.Blocks;
 using Siemens.Engineering.HmiUnified;
 using TIA_LIB.Xml;
+using System.Collections.Generic;
+using TIA_LIB.Xml.Network;
 
 namespace TIA_LIB.Devices
 {
@@ -34,6 +36,20 @@ namespace TIA_LIB.Devices
         private string _DescriptionBlockType;
         private int _DescriptionMonitorCount;
         private int _DescriptionInterlockCount;
+
+        internal IEnumerable<XmlCall> ConfiguredDeviceCalls()
+        {
+            var network = Unit.FindNetwork(TagName);
+            if (network == null) throw new InvalidOperationException("Missing device network " + Unit.Name + "/" + TagName + ".");
+            for (int index = 0; index <= _DescriptionMonitorCount; index++)
+            {
+                string name = index == 0 ? TagName : TagName + "_Instance" + index;
+                XmlCall call;
+                if (!network.Calls.TryGetValue(name, out call) || call.BlockName != _DescriptionBlockType || call.InstType != "LocalVariable")
+                    throw new InvalidOperationException("Expected owned device call " + Unit.Name + "/" + name + " of " + _DescriptionBlockType + ".");
+                yield return call;
+            }
+        }
 
         protected void ConfigureInstanceDescription(string blockType, int monitorCount, string description, int interlockCount = 0)
         {

@@ -60,6 +60,23 @@ The table below records the original retained-trial findings; the new source
 export now resolves its fbMotS gap. Current controller/PID evidence remains
 incomplete until the missing definitions are supplied.
 
+### Completed controller/PID contract evidence
+
+The user subsequently supplied all three remaining definitions:
+
+| Export | SHA256 | Verified contract |
+| --- | --- | --- |
+| fbControlSfc.scl | 961773010BCA915F735AE89EDC98A1617A8048A35528570C02020F3C2ED6EFA0 | Version 1.0, Input HSS/Reset : Bool, InterfaceInOut : DWord in VAR_IN_OUT |
+| fbPIDCtrl.scl | AAB5251B32B94B8B1ED7EB9481341D95F6C1250982F4638CFC89BF1F1C41BAEF | Version 1.0, CFG : typePIDCfg in VAR_INPUT; no direct CFG assignment found |
+| typePIDCfg.udt | 0B9CF20BD7623198E68823CABAC7D0554FD81C7E2900412FC80759CFA8D50110 | Version 0.1, split-range instruction metadata/defaults, permissions/features and AlarmBlock defaults |
+
+The three-file evidence gap is closed. All seven device CFG contracts are
+Input. Unit CFG direction is therefore Input, preserving the existing read-only
+caller contract. These are current offline exports, not online-value captures.
+fbControlSfc consumes HSS directly in its protection/held-state conditions;
+do not invert it. The operation selector's unassigned Reset still must not be
+silently changed to delayed reset. No provided library implementation is edited.
+
 | Called library FB | Retained trial evidence | Configuration | Control pins checked |
 | --- | --- | --- | --- |
 | fbUnit | A2 instance | None | Inputs ALARM, WARN, OP_REQ, FUNC_TEXT; outputs QALARM, QWARN, QOP_REQ |
@@ -153,22 +170,54 @@ category grouping unless dependencies are explicitly reconciled. Conflicting
 writes must also retain order. Independent networks can group stably.
 
 These primitives do not yet contain the complete executable statement model,
-constructor adapters, source renderers, managed-source ownership protocol,
-configuration migration preflight or live import backend. Their tests do not
-establish backend parity. The runtime generator does not use them yet, and its
-prompt remains operation-interlock-only to avoid advertising unavailable scope.
+source renderers, managed-source ownership protocol or live import backend.
+Their tests do not establish backend parity. The runtime generator does not use
+them yet, and its prompt remains operation-interlock-only to avoid advertising
+unavailable scope.
+
+## Prepared control routing and read-only configuration inspection
+
+`ModularControlRouting.Prepare` can prepare the five Unit inputs/Plant global
+bindings, local Unit SFC HSS/reset, device RESET/PROT, Operation forwarding and
+multi-phase controller HSS/delayed reset on the in-memory XML model. It is not
+called by runtime generation yet: activation requires completed batch preflight
+and backend integration. RESET_CYCL and standalone Tp/Rp global resets retain
+their established semantics. No selector Reset behavior is invented.
+
+The G-016 reconciler now delegates to a parameterized Boolean-reference helper.
+Its compatibility entry point still uses global F_Safe.HSS. The preparation
+pass supplies local references and removes only a replaced operand with no
+remaining wire users, avoiding orphan hidden global references. Shared access
+nodes and other/manual users remain intact. No HMI/F_Safe DB member is created.
+
+`ConfigurationMigrationPlan.Inspect` derives exact base/monitor ownership from
+configured device calls. It takes an **original DB section snapshot**, not the
+mutable cfgData cache that existing constructors extend. This distinction keeps
+fresh generated declarations from being misidentified as legacy configuration.
+It copies existing member metadata/values, rejects source/type/member collisions
+and reports separate consumer-review, offline-backup and online-value protection
+preconditions. It does not modify the DB or apply/authorize a migration. Existing
+nested CFG requires explicit UDT/value reconciliation rather than rebuilding
+blindly; managed idempotent regeneration remains outstanding.
+
+`Tests/Verify-ModularControlRouting.ps1` exercises this pass and configuration
+inspection on actual seven-family device Add fixtures plus bare Unit/Operation
+models, two phases, both staging/language options, v4/v5 and repeated reloads.
+It checks exact scopes, effective and orphan global references, cyclic resets,
+no invented selector reset, no global DB mutation, eleven configuration leaves
+(seven devices plus four monitors), copied metadata/start values and migration
+preconditions/collisions. Runtime activation and backend parity are not tested.
 
 ## Remaining implementation gates
 
-1. Obtain current target FB/type definitions, especially updated fbControlSfc,
-   fbPIDCtrl/typePIDCfg and the stateful phase/library dependencies. Check pin directions,
-   type/version dependencies, EN behavior and relevant configuration/global
-   writes. Caller XML alone cannot prove implementation side effects.
+1. Core library contract exports are now present and checked. Complete the
+   executable statement/dependency audit, including phase stateful helpers and
+   EN behavior, without guessing compiler instruction semantics.
 2. Complete the supported semantic statement model and actual Add/constructor
    adapters, then both renderers and independent parity fixtures. Do not infer
    arbitrary manual code from old XML or mark converted bodies as owned.
-3. Generalize G-016 endpoint reconciliation for explicit local control operands,
-   then integrate Unit/Operation/Plant interfaces and configuration planning.
+3. Integrate the prepared Unit/Operation/Plant routing and configuration inspection
+   into the finalized batch lifecycle; render the per-unit UDT/CFG interface.
 4. Specify and test managed-content ownership before enabling additive updates.
 5. Build read-only cfgData migration plans, including backups, current metadata,
    external consumer inventory and online-value capture requirements. Unknown
@@ -186,3 +235,14 @@ No generator execution or live project changes are part of this checkpoint.
 AC-1 through AC-8 are **not complete**. They require the runtime adapters,
 complete renderers, migration protections and semantic/backend parity described
 above. A passing C# build or planning test does not change that status.
+
+| Acceptance criterion | Checkpoint status | Evidence / remaining scope |
+| --- | --- | --- |
+| AC-1 General language scope | Not tested | General selector/renderers not implemented or activated |
+| AC-2 Equivalent interfaces/routing/CFG | Not tested | XML control preparation verified; CFG interfaces/backends not integrated |
+| AC-3 Device grouping/presentation | Not tested | Pure safe scheduling verified; backend presentation remains |
+| AC-4 Executable semantic/backend parity | Not tested | Dependency foundations tested, complete statement model/renderers remain |
+| AC-5 Complete per-unit CFG generation | Not tested | Actual seven-family ownership inventory and Input direction verified; UDT/DB bindings remain |
+| AC-6 Protected legacy migration | Not tested | Read-only inventory/precondition/collision checks pass; end-to-end reviewed migration remains |
+| AC-7 Empty/PID/prior-feature runtime behavior | Not tested | Prior suites pass; new modular runtime paths not activated |
+| AC-8 Complete builds/parity/live validation reporting | Not tested | V21 x64/AnyCPU and all seven offline suites pass; full backend parity absent, V20 APIs absent, live validation not run |

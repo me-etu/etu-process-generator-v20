@@ -577,6 +577,9 @@ For the G-009 unit workbook primer:
 - Generated DB/UDT staging copies available comments into generated dbIO/UDT members where supported.
 - Generated DB/UDT staging uses the unit-first DB path shape: `dbIO.<UnitName>.IN.<safe member>` and `dbIO.<UnitName>.OUT.<safe member>`.
 - Generated UDT names are `hwIN_<UnitName>` and `hwOUT_<UnitName>`.
+- `AddPidControl` contributes no hardware IO in either staging mode. It inserts/reuses `fbPIDCtrl` and its direct Static instance description while retaining configuration, internal setpoint/output values, HMI, RESET and unit alarm integration. It does not register or wire `<name>_SP` / `<name>_OUT` hardware outputs; explicit similarly named outputs from other callers remain legitimate.
+- Unit `hwIN`/`hwOUT` interfaces and Plant bindings are prepared by `PlcProject.PrepareSignalStaging` during generated `CreateTags`, once the inventory is complete. Fresh PID-only units still generate their device/unit calls, but have no inventory entry, staging UDT pair, dbIO unit member or new hardware interface/binding. A general empty dbIO follows the existing lifecycle.
+- Regenerated UDTs for units still in the inventory omit former PID-derived fields. No migration/deletion pass removes old tags, dbIO members, interfaces, bindings or manual content; old artifacts for a PID-only unit can remain. Such cleanup requires separate ownership and preservation rules.
 - `fcReadIn` and `fcWriteOut` creation/manipulation is intentionally deferred to a later spec; current files are source evidence only.
 ### Simulator Device UI Template
 
@@ -612,6 +615,22 @@ These files are used by the simulator and are currently maintained manually. Aft
 - active `Add...` call count matches expectations
 
 ## Troubleshooting And Known Failure Modes
+
+### SFC controller HSS connection (G-016)
+
+The three constructor routes delegate to `XmlBlock.ConfigureSfcControl`: `XmlUnit` uses network `Unit sfc control` / instance `sfc_<unit>`; `XmlOperation` uses network `<operation>` / `sfc_<operation>`; `XmlPhase` uses its owning operation's network `Sfc control <phase>` / `sfc_<phase>`. The helper creates a call only when the network is new and otherwise requires the exact local `fbControlSfc` identity and Static declaration. Only fresh networks run the existing initializers. Cached AddUnit/AddOP/AddPH retain the configured calls.
+
+`XmlNetwork.ConfigureSfcHss` configures Input Bool HSS as a direct GlobalVariable with components F_Safe/HSS. It is independent of signal staging and FBD/SCL interlock selection. It recognizes legacy unqualified v4 construction and qualified v4/v5 export, while new HSS elements use the source namespace. It adds missing wiring, reconciles simple wrong/negated connections and leaves already correct wiring/XML/dirty state unchanged. Shared old operands and their other users remain intact; only the targeted endpoint moves. Multiple drivers and unsupported logic sources fail before mutation. HSS wire/access/open/negation caches stay consistent. Only duplicate HSS wire indexing is tolerated during parsing so the targeted operation can diagnose the ambiguity; unrelated duplicate indexing retains existing behavior.
+
+The target must have updated `fbControlSfc.Input HSS : Bool` and an existing `F_Safe.HSS : Bool`. HSS reference creation deliberately bypasses GetValueFromGlobalDB, which could otherwise add a missing member automatically. No hardware inventory, marker tags, unit interfaces, fallback member or library replacement is introduced; existing device PROT wiring is unchanged. Normal controller import errors include the prerequisite and preserve the original exception/XML path. Offline tests cannot confirm the supplied PLC FB's semantics or the live target's member/type compatibility.
+
+Run `Tests/Verify-SfcHss.ps1` against the rebuilt V21 library (default x64; use `-LibraryPath ./etu-process-generator-TiAv21/bin/Debug/TIA_LIB.dll` for AnyCPU). Tests invoke the executable shared call-resolution/configuration path on bare unit/operation XML objects, with constructor integration guards and actual cached Add methods. They bypass live Portal/unit/operation/phase constructors and never Upload/import. A disposable-project compile with the updated library remains the live acceptance step.
+
+### Duplicate connections when adding devices to an existing unit
+
+A V21 import failure reporting a connection used multiple times can originate in unit alarm aggregation. The retained `fbBV130_B10_20.xml` (2026-10-22, AnyCPU output) has CompileUnit ID 3 at line 10498 with four wires driving `fbUnit.ALARM`: original wire 45 plus wires 64/70/76 added for TIC-1174, TIC-1176 and PIC-1164. Siemens internal part/connection identifiers in the exception are not the exported XML endpoint IDs.
+
+The device constructors' aggregation searches still assumed FlgNet/v4 after the shared reader had been made namespace-aware. On exported v5 networks they missed the existing OR and appended another one for every new device. Analog, Digital, Valve, ValveControl, Motor, MotorControl and PidControl now switch their aggregation namespace to the unit network's `SourceNamespace` before looking up ALARM/WARN. Existing logic/wires are reused; no cleanup of arbitrary old/manual content is performed. `Verify-DeviceStagingInputs.ps1` exercises actual Add methods, editing/reopening existing devices and adding all seven families over two qualified v4/v5 cycles, both staging modes, unique endpoints, original OR identity/wire preservation, manual comments and every device's QERR contribution. No live generator/import is part of these tests.
 
 ### Device descriptions return as network comments
 

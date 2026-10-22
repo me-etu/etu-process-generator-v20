@@ -2,6 +2,21 @@
 
 All notable project and generator changes should be recorded here.
 
+## 2026-10-22
+
+### Added
+
+- G-016: every generated unit, operation and phase `fbControlSfc` call now connects Input `HSS : Bool` directly to global `F_Safe.HSS`, without inversion. Existing operation selectors are resolved explicitly as well as new calls; cached model paths retain the connection.
+- Focused HSS reconciliation adds missing connections, corrects simple wrong/negated operands, preserves other consumers of shared operands, and rejects ambiguous drivers/topology with block/network/instance context. Correct wiring is unchanged and does not dirty the block. No hardware IO or fallback DB/member is created. The target must already contain the updated `fbControlSfc` and `F_Safe.HSS : Bool`; controller import errors retain the original exception and include this prerequisite.
+- Added `Tests/Verify-SfcHss.ps1`: executable shared-call configuration tests cover unit/operation/multiple phases, fresh and qualified v4/v5 exports, both staging modes/interlock languages, exact reopen/idempotence, caches/dirty state, shared/manual preservation, wrong call identities and unsupported topology. Live Siemens import/compile remains separate validation.
+
+### Fixed
+
+- Fixed adding devices to an already generated V21 unit: all seven device constructors now discover the unit alarm/warning OR blocks using the unit network's actual FlgNet namespace. Hard-coded v4 lookups missed exported v5 wiring and added another driver to `fbUnit.ALARM` for each new device, causing duplicate-connection import failures. Offline regressions cover all families across two edit/add/export/reopen passes in both modes and v4/v5, retaining existing status wires and manual comments.
+- G-015: `AddPidControl` no longer registers unused `<name>_SP` / `<name>_OUT` hardware outputs in either staging mode. Its `fbPIDCtrl` call, Static instance description, configuration, reset/alarm and HMI behavior remain unchanged; existing Project.cs calls need no edits.
+- Deferred unit staging interfaces and Plant bindings to inventory preparation so fresh PID-only units do not reference nonexistent hardware UDTs/dbIO members. Units with real IO retain the same staging names and bindings. Existing interfaces, bindings, old PID-only artifacts and manual content are not swept or deleted; regenerated UDTs for participating units reflect their current inventory.
+- Extended the offline device-staging suite for fresh/cached PID calls, PID-only and mixed units, configuration/comments, legitimate similarly named outputs, XML schema validation and existing-artifact preservation. V21 Debug x64/AnyCPU builds and all four offline suites pass; V20 APIs are absent and no live Portal run was performed.
+
 ## 2026-10-21
 
 ### Added

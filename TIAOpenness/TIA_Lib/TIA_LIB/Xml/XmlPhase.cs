@@ -121,15 +121,13 @@ namespace TIA_LIB.Xml
 
 
             //Sfc control
-            calledBlockName = "fbControlSfc";
-            network = Op.FindNetwork("Sfc control " + name);
+            bool isNewControl;
+            call = Op.ConfigureSfcControl("Sfc control " + name, "sfc_" + name, out isNewControl);
+            network = call.Network;
 
-            if (network == null)
+            if (isNewControl)
             {
                 _isNew = true;
-
-                network = Op.GetNetwork("Sfc control " + name);
-                call = network.GetCall(calledBlockName, "FB", "LocalVariable", "sfc_" + name);
 
                 network.SetParameter(call, "en", "Input", "Bool");
                 network.SetParameter(call, "isUnit", "Input", "Bool", "False");
@@ -141,14 +139,6 @@ namespace TIA_LIB.Xml
                 network.SetParameter(call, "PRECOND_SSS", "Input", "Bool", "precond_" + name + "|" + "QLOCK");
                 network.SetParameter(call, "PRECOND_IDLE", "Input", "Bool", null + "|" + "IDLE");
                 network.SetParameter(call, "Reset", "Input", "Bool", "HMI|" + "RESET_DELAYED", true);
-            }
-
-            else
-            {
-                if (call == null)
-                {
-                    call = network.GetCall(calledBlockName, "FB", "LocalVariable", "sfc_" + name);
-                }
             }
 
             var interlock = GetInterlock(Op.Name);

@@ -363,6 +363,7 @@ namespace TIA_LIB.Devices
             if (isNewNetwork)
             {
                 network = unit.FindNetwork(unit.Name);
+                _Namespace = network.SourceNamespace;
                 call = network.FindCall("fbUnit", "FB", "LocalVariable", unit.Name);
 
                 bool isNew = false;

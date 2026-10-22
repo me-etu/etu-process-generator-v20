@@ -262,8 +262,6 @@ namespace TIA_LIB
         {
             var unit = Plant.GetUnit(unit_name);
             var deviceDescription = GetCallerLineComment(callerFilePath, callerLineNumber);
-            StagingInventory.AddOutput(unit_name, name + "_SP", "Int", "PID setpoint " + unity + ", " + numbDecPoints + " decimals");
-            StagingInventory.AddOutput(unit_name, name + "_OUT", "Int", "PID output " + unityOut + ", " + numbDecPointsOut + " decimals");
             var device = unit.GetDevice(name) as PidControl;
 
             if (device == null)
@@ -599,10 +597,12 @@ namespace TIA_LIB
         }
 
 
-        private void CreateGeneratedDbUdtStaging()
+        private void PrepareSignalStaging()
         {
-            XmlUdt.Udts = new List<XmlUdt>();
+            if (StagingMode != SignalStagingMode.GeneratedDbUdt) return;
 
+            // The complete inventory is known here. Units without hardware IO must
+            // not acquire interfaces or Plant bindings to nonexistent staging types.
             foreach (var unitPlan in StagingInventory.Units)
             {
                 XmlUnit unit;
@@ -611,7 +611,21 @@ namespace TIA_LIB
                     unit.GetInterfaceMember("Input", "hwIN", "hwIN_" + unitPlan.SafeName);
                     unit.GetInterfaceMember("Output", "hwOUT", "hwOUT_" + unitPlan.SafeName);
                 }
+
+                var network = Plant.FindNetwork(unitPlan.OriginalName) ?? Plant.FindUnitCallNetwork(unitPlan.OriginalName);
+                var call = network?.FindCall("fb" + unitPlan.OriginalName, "FB", "GlobalVariable", unitPlan.OriginalName);
+                if (call != null)
+                {
+                    network.SetParameter(call, "hwIN", "Input", "hwIN_" + unitPlan.SafeName, "dbIO|" + unitPlan.SafeName + "|IN", true);
+                    network.SetParameter(call, "hwOUT", "Output", "hwOUT_" + unitPlan.SafeName, "dbIO|" + unitPlan.SafeName + "|OUT", true);
+                }
             }
+        }
+
+        private void CreateGeneratedDbUdtStaging()
+        {
+            PrepareSignalStaging();
+            XmlUdt.Udts = new List<XmlUdt>();
 
             StagingInventory.LogPlan();
 

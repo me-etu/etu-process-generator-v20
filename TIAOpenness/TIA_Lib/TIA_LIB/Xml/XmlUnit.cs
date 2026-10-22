@@ -16,12 +16,6 @@ namespace TIA_LIB.Xml
         {
             Name = name;
 
-            if (PlcProject.StagingMode == SignalStagingMode.GeneratedDbUdt)
-            {
-                string safeUnitName = SignalStagingInventory.SafeName(Name);
-                GetInterfaceMember("Input", "hwIN", "hwIN_" + safeUnitName);
-                GetInterfaceMember("Output", "hwOUT", "hwOUT_" + safeUnitName);
-            }
             XmlCall call = null;
 
             string calledBlockName;

@@ -2,6 +2,14 @@
 
 All notable project and generator changes should be recorded here.
 
+## 2026-10-22
+
+### Fixed
+
+- G-015: `AddPidControl` no longer registers unused `<name>_SP` / `<name>_OUT` hardware outputs in either staging mode. Its `fbPIDCtrl` call, Static instance description, configuration, reset/alarm and HMI behavior remain unchanged; existing Project.cs calls need no edits.
+- Deferred unit staging interfaces and Plant bindings to inventory preparation so fresh PID-only units do not reference nonexistent hardware UDTs/dbIO members. Units with real IO retain the same staging names and bindings. Existing interfaces, bindings, old PID-only artifacts and manual content are not swept or deleted; regenerated UDTs for participating units reflect their current inventory.
+- Extended the offline device-staging suite for fresh/cached PID calls, PID-only and mixed units, configuration/comments, legitimate similarly named outputs, XML schema validation and existing-artifact preservation. V21 Debug x64/AnyCPU builds and all four offline suites pass; V20 APIs are absent and no live Portal run was performed.
+
 ## 2026-10-21
 
 ### Added

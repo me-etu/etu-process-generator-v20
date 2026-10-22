@@ -40,17 +40,11 @@ namespace TIA_LIB.Xml
                     call = network.FindCall("fb" + name, "FB", "GlobalVariable", name);
                 }
 
-                if (PlcProject.StagingMode == SignalStagingMode.GeneratedDbUdt && call != null)
-                {
-                    string safeUnitName = SignalStagingInventory.SafeName(name);
-                    network.SetParameter(call, "hwIN", "Input", "hwIN_" + safeUnitName, "dbIO|" + safeUnitName + "|IN", true);
-                    network.SetParameter(call, "hwOUT", "Output", "hwOUT_" + safeUnitName, "dbIO|" + safeUnitName + "|OUT", true);
-                }      
             }
             return unit;
         }
 
-        private XmlNetwork FindUnitCallNetwork(string unitName)
+        internal XmlNetwork FindUnitCallNetwork(string unitName)
         {
             string blockName = "fb" + unitName;
 

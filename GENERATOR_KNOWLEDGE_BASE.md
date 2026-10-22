@@ -577,6 +577,9 @@ For the G-009 unit workbook primer:
 - Generated DB/UDT staging copies available comments into generated dbIO/UDT members where supported.
 - Generated DB/UDT staging uses the unit-first DB path shape: `dbIO.<UnitName>.IN.<safe member>` and `dbIO.<UnitName>.OUT.<safe member>`.
 - Generated UDT names are `hwIN_<UnitName>` and `hwOUT_<UnitName>`.
+- `AddPidControl` contributes no hardware IO in either staging mode. It inserts/reuses `fbPIDCtrl` and its direct Static instance description while retaining configuration, internal setpoint/output values, HMI, RESET and unit alarm integration. It does not register or wire `<name>_SP` / `<name>_OUT` hardware outputs; explicit similarly named outputs from other callers remain legitimate.
+- Unit `hwIN`/`hwOUT` interfaces and Plant bindings are prepared by `PlcProject.PrepareSignalStaging` during generated `CreateTags`, once the inventory is complete. Fresh PID-only units still generate their device/unit calls, but have no inventory entry, staging UDT pair, dbIO unit member or new hardware interface/binding. A general empty dbIO follows the existing lifecycle.
+- Regenerated UDTs for units still in the inventory omit former PID-derived fields. No migration/deletion pass removes old tags, dbIO members, interfaces, bindings or manual content; old artifacts for a PID-only unit can remain. Such cleanup requires separate ownership and preservation rules.
 - `fcReadIn` and `fcWriteOut` creation/manipulation is intentionally deferred to a later spec; current files are source evidence only.
 ### Simulator Device UI Template
 

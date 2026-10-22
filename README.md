@@ -38,6 +38,8 @@ Do not hand-link `TIA_LIB.dll` from `etu-process-generator-TiAv20\bin\x64\Debug`
 ## Current Generation Flow
 
 At startup, the console asks for signal staging mode. Pressing Enter keeps the default marker-memory behavior. Selecting generated DB/UDT staging prepares `hwIN_<SafeUnitName>`, `hwOUT_<SafeUnitName>`, and `dbIO` artifacts, adds `hwIN`/`hwOUT` unit FB interfaces, and wires Plant unit calls to `dbIO.<SafeUnitName>.IN/OUT`.
+
+`AddPidControl` creates/reuses the `fbPIDCtrl` call and its Static instance description, retaining configuration and HMI/reset/alarm integration, but contributes no hardware IO. Unit staging interfaces/bindings are prepared only for units with registered hardware signals, so a fresh PID-only unit needs no hardware staging types or dbIO member. Existing obsolete PID staging artifacts and manual content are preserved; automatic cleanup/migration is separate work.
 Before that choice, both apps independently ask for the language of **operation interlock FBs only**: `1. FBD` (Enter/default) or `2. SCL`. Phase, operation, unit and device block languages are unaffected. Programmatic callers may set `PlcProject.InterlockLanguage = OperationInterlockLanguage.Scl` before constructing `Project`; changing language after model construction begins is rejected.
 `Project.cs` performs these side-effecting steps:
 

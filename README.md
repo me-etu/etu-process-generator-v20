@@ -2,6 +2,8 @@
 
 TIA Portal generator project for creating PLC function blocks, PLC tags, and Unified HMI-related objects from a declarative C# project definition.
 
+G-017 is in development: [implementation audit and planning checkpoint](Docs/G-017-implementation-audit.md). Its pure planning primitives are not connected to runtime generation yet; the existing operation-interlock-only language selector remains in effect.
+
 ## Purpose
 
 Each version has its own declarative `Project.cs`: `etu-process-generator-TiAv20/Project.cs` and `etu-process-generator-TiAv21/Project.cs`. They describe the plant model through helper calls inherited from `TIA_LIB.PlcProject`, such as:

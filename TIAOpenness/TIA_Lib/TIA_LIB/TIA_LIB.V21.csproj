@@ -141,6 +141,7 @@
     <Compile Include="Xml\XmlNetwork.cs" />
     <Compile Include="Xml\XmlBlock.cs" />
     <Compile Include="OperationInterlocks.cs" />
+    <Compile Include="ModularGenerationPlan.cs" />
     <Compile Include="OperationInterlockPortalBackend.cs" />
     <Compile Include="PlcProject.cs" />
     <Compile Include="SiemensPortal.cs" />

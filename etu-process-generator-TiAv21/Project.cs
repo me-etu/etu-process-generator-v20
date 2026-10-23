@@ -33,22 +33,22 @@ namespace EtuProcessGeneratorTiaV21
 
 
              
-                #region Unit BV130_B10_20
-                AddAnalog("BV130_B10_20", "LC-B13", 2, 0, "%", 0, 0, 100); // Level radar sensor BV130 B13
-                AddDigital("BV130_B10_20", "LSA-B23", 2, 0, 0, false, false); // Overfill protection BV130 B23
-                AddDigital("BV130_B10_20", "MS-G11", 1, 0, 0, true, false); // Maintenance switch BV130 G11
-                AddValve("BV130_B10_20", "Q11", 1, 0, 0, false, false, false, true, false, -1, -1); // Open valve BV140 Q11
-                AddMotor("BV130_B10_20", "G11", 5, 0, 0, false, false, -1, -1); // Pump BV130 G11 Run
-                AddPH("BV130_B10_20", "OP5_Pressure", "PH_Vent");
-                AddPH("BV130_B10_20", "OP5_Pressure", "PH_Blanketing");
-                AddPH("BV130_B10_20", "OP5_Charge", "PH_Charge_Black_run");
-                AddPH("BV130_B10_20", "OP5_Charge", "PH_Charge_Educt");
-                AddPH("BV130_B10_20", "OP5_Charge", "PH_Charge_Catalyst", 1, false, 0, 300, 0, "L");
-                AddPH("BV130_B10_20", "OP5_Charge", "PH_Charge_CIP");
-                AddPH("BV130_B10_20", "OP5_Agitate", "PH_Agitate", 1, false, 0, 470, 0, "rpm");
-            AddPidControl("BV130_B10_20", "TIC-1174", 1, "°C", 1);
-            AddPidControl("BV130_B10_20", "TIC-1176", 1, "°C", 1);
-            AddPidControl("BV130_B10_20", "PIC-1164", 1, "bar(g)", 1);
+                #region Unit TK003
+                AddAnalog("TK003", "LC-B13", 2, 0, "%", 0, 0, 100); // Level radar sensor BV130 B13
+                AddDigital("TK003", "LSA-B23", 2, 0, 0, false, false); // Overfill protection BV130 B23
+                AddDigital("TK003", "MS-G11", 1, 0, 0, true, false); // Maintenance switch BV130 G11
+                AddValve("TK003", "Q11", 1, 0, 0, false, false, false, true, false, -1, -1); // Open valve BV140 Q11
+                AddMotor("TK003", "G11", 5, 0, 0, false, false, -1, -1); // Pump BV130 G11 Run
+                AddPH("TK003", "OP6_Pressure", "PH_Vent");
+                AddPH("TK003", "OP6_Pressure", "PH_Blanketing");
+                AddPH("TK003", "OP6_Charge", "PH_Charge_Black_run");
+                AddPH("TK003", "OP6_Charge", "PH_Charge_Educt");
+                AddPH("TK003", "OP6_Charge", "PH_Charge_Catalyst", 1, false, 0, 300, 0, "L");
+                AddPH("TK003", "OP6_Charge", "PH_Charge_CIP");
+                AddPH("TK003", "OP6_Agitate", "PH_Agitate", 1, false, 0, 470, 0, "rpm");
+            AddPidControl("TK003", "TIC-1174", 1, "°C", 1);// PID control loop TIC 1174
+            AddPidControl("TK003", "TIC-1176", 1, "°C", 1);// PID control loop TIC 1176
+            AddPidControl("TK003", "PIC-1164", 1, "bar(g)", 1);// PID control loop PIC 1164
             #endregion
 #if false
             #region Unit hydrogenerator

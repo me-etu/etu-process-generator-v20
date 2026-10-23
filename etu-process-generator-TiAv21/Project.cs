@@ -33,23 +33,126 @@ namespace EtuProcessGeneratorTiaV21
 
 
              
-                #region Unit TK003
-                AddAnalog("TK003", "LC-B13", 2, 0, "%", 0, 0, 100); // Level radar sensor BV130 B13
-                AddDigital("TK003", "LSA-B23", 2, 0, 0, false, false); // Overfill protection BV130 B23
-                AddDigital("TK003", "MS-G11", 1, 0, 0, true, false); // Maintenance switch BV130 G11
-                AddValve("TK003", "Q11", 1, 0, 0, false, false, false, true, false, -1, -1); // Open valve BV140 Q11
-                AddMotor("TK003", "G11", 5, 0, 0, false, false, -1, -1); // Pump BV130 G11 Run
-                AddPH("TK003", "OP6_Pressure", "PH_Vent");
-                AddPH("TK003", "OP6_Pressure", "PH_Blanketing");
-                AddPH("TK003", "OP6_Charge", "PH_Charge_Black_run");
-                AddPH("TK003", "OP6_Charge", "PH_Charge_Educt");
-                AddPH("TK003", "OP6_Charge", "PH_Charge_Catalyst", 1, false, 0, 300, 0, "L");
-                AddPH("TK003", "OP6_Charge", "PH_Charge_CIP");
-                AddPH("TK003", "OP6_Agitate", "PH_Agitate", 1, false, 0, 470, 0, "rpm");
-            AddPidControl("TK003", "TIC-1174", 1, "°C", 1);// PID control loop TIC 1174
-            AddPidControl("TK003", "TIC-1176", 1, "°C", 1);// PID control loop TIC 1176
-            AddPidControl("TK003", "PIC-1164", 1, "bar(g)", 1);// PID control loop PIC 1164
-            #endregion
+            //    #region Unit TK003
+            //    AddAnalog("TK003", "LC-B13", 2, 2, "%", 0, 0, 100); // Level radar sensor BV130 B13
+            //    AddDigital("TK003", "LSA-B23", 2, 0, 0, false, false); // Overfill protection BV130 B23
+            //    AddDigital("TK003", "MS-G11", 1, 0, 0, true, false); // Maintenance switch BV130 G11
+            //    AddValve("TK003", "Q11", 1, 0, 0, false, false, false, true, false, -1, -1); // Open valve BV140 Q11
+            //    AddMotor("TK003", "G11", 5, 0, 0, false, false, -1, -1); // Pump BV130 G11 Run
+            //    AddPH("TK003", "OP6_Pressure", "PH_Vent");
+            //    AddPH("TK003", "OP6_Pressure", "PH_Blanketing");
+            //    AddPH("TK003", "OP6_Charge", "PH_Charge_Black_run");
+            //    AddPH("TK003", "OP6_Charge", "PH_Charge_Educt");
+            //    AddPH("TK003", "OP6_Charge", "PH_Charge_Catalyst", 1, false, 0, 300, 0, "L");
+            //    AddPH("TK003", "OP6_Charge", "PH_Charge_CIP");
+            //    AddPH("TK003", "OP6_Agitate", "PH_Agitate", 1, false, 0, 470, 0, "rpm");
+            //AddPidControl("TK003", "TIC-1174", 1, "°C", 1);// PID control loop TIC 1174
+            //AddPidControl("TK003", "TIC-1176", 1, "°C", 1);// PID control loop TIC 1176
+            //AddPidControl("TK003", "PIC-1164", 1, "bar(g)", 1);// PID control loop PIC 1164
+            //#endregion
+
+            //HYDROGENATOR
+            AddValve("410", "XV-410-700", 2, 1, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-701", 2, 1, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-702", 1, 2, 1, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-703", 3, 2, 1, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-704", 1, 2, 1, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-706", 1, 1, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-708", 1, 4, 1, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-709", 2, 2, 1, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-711", 1, 2, 1, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-712", 3, 1, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-715", 3, 0, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-716", 3, 1, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-717", 1, 1, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-718", 2, 1, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-719", 2, 1, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-720", 2, 1, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-721", 1, 2, 1, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-722", 2, 2, 1, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-723", 3, 2, 1, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-724", 1, 2, 1, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-725", 2, 2, 1, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-727", 2, 1, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-729", 2, 0, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-730", 2, 1, 0, mon_opn, mon_cls, false, true, true, 1);
+            AddValve("410", "XV-410-731", 2, 1, 0, mon_opn, mon_cls, false, true, true, 1);           
+            AddValve("410", "XV-410-733", 1, 2, 1, mon_opn, mon_cls, false, true, true, 1);
+
+            AddMotorControl("410", "AG410", 1, 2, 0, "rpm", 1, mon_on, false, 2);
+            AddMotorControl("410", "PU411", 3, 2, 0, "%", 1, mon_on, false, 2);
+
+            AddValveControl("410", "CV-410-707", 1, 3);
+            AddValveControl("410", "CV-410-713", 3, 1);
+            AddValveControl("410", "CV-410-726", 2, 1);
+
+            AddDigital("410", "FISL-410-200", 4, 0);
+            AddDigital("410", "FISL-410-728", 4, 0, 1);
+            AddDigital("410", "LS-410-500", 3, 0);
+            AddDigital("410", "LS-410-505", 3, 0);
+            AddDigital("410", "LS-410-510", 3, 0, 1);
+            AddDigital("410", "LS-410-515", 3, 0, 1);
+            AddDigital("410", "PIS-410-625", 4, 0, 1);
+            AddDigital("410", "GS-410-910", 3, 0, 1);
+            AddDigital("410", "LS-410-525", 3, 0, 1);
+            AddDigital("410", "LS-410-530", 2, 2, 1);
+            AddDigital("410", "LS-410-535", 3, 0, 1);
+            AddDigital("410", "PIS-410-650", 3, 0, 1);
+            AddDigital("410", "TIS-410-150", 3, 0, 1);
+
+            AddAnalog("410", "TI-410-135", 3, 10, "°C", 1, -20, 150);
+            AddAnalog("410", "TI-410-140", 3, 10, "°C", 1, -20, 150);
+            AddAnalog("410", "TI2-410-140", 3, 10, "°C", 1, -20, 150);
+            AddAnalog("410", "TIC-410-101", 3, 1, "°C", 1, -20, 150);
+            AddAnalog("410", "TIC-410-110", 3, 1, "°C", 1, -20, 150);
+            AddAnalog("410", "LI-410-526", 3, 1, "%", 1, 0, 100);
+            AddAnalog("410", "PI-410-610", 4, 10, "bar", 2, -1, 16);
+            AddAnalog("410", "PI-410-645", 4, 0, "bar", 2, 0, 40);
+            AddAnalog("410", "PI-410-640", 2, 5, "bar", 2, -1, 10);
+            AddAnalog("410", "PDI-410-645", 4, 1, "bar", 1, 0, 41);
+            AddAnalog("410", "FI-410-734", 3, 1, "l/min", 1, 0, 5);
+            AddAnalog("410", "FI-410-735", 2, 1, "l/min", 1, 0, 20);
+            AddAnalog("410", "FT-750-201", 2, 1, "g/min", 1, 0, 10000);
+
+            //PID
+            AddPidControl("410", "PIC-410-610-A", 1, "mbar", 0);
+            AddPidControl("410", "PIC-410-610-B", 1, "bar", 2);
+            AddPidControl("410", "PIC-410-610-C", 1, "bar", 2);
+            AddPidControl("410", "TIC-410-135", 1, "°C", 1);
+
+
+
+
+
+            AddPH("410", "OP1_Agitate", "PH_Agitate", 1, false, 85, 263, 0, "rpm");
+
+            AddPH("410", "OP1_Charge", "PH_Charge_CLGO", 1, false, 0, 100, 1, "%");
+            AddPH("410", "OP1_Charge", "PH_Charge_CASL");
+            AddPH("410", "OP1_Charge", "PH_Charge_Blackrun");
+            AddPH("410", "OP1_Charge", "PH_Charge_Filter_Heel");
+            AddPH("410", "OP1_Charge", "PH_Charge_CIP_from_TK430");
+            AddPH("410", "OP1_Charge", "PH_Charge_CIP_Blackrun_Piping");
+            AddPH("410", "OP1_Charge", "PH_Charge_CIP_Heel_Piping");
+            AddPH("410", "OP1_Charge", "PH_Charge_CIP_Nozzles");
+            //AddPH("410", "OP1_Charge", "PH_Charge_CIP_Product_Outlet");
+
+            AddPH("410", "OP1_Discharge", "PH_Filling_Blackrun_FL420", 2, false, 0, 5, 2, "bar", "", false, 0, 90, 1, "min");
+            AddPH("410", "OP1_Discharge", "PH_Filtration", 2, false, 0, 5, 2, "bar", "", false, 0, 600, 1, "min");
+            AddPH("410", "OP1_Discharge", "PH_Discharge_CIP_Nozzles");
+            AddPH("410", "OP1_Discharge", "PH_Feed_CIP_Piping", 1, true, 2, 5, 0, "", "txtList_OP1_Discharge_PH_Feed_CIP_Piping");
+
+            AddPH("410", "OP1_Pressure", "PH_Blanketing");
+            AddPH("410", "OP1_Pressure", "PH_Re_Inert");
+            AddPH("410", "OP1_Pressure", "PH_N2_Replace");
+            AddPH("410", "OP1_Pressure", "PH_Reaction", 2, false, 0, 10, 2, "bar", "", false, 0, 1000, 1, "min");
+            AddPH("410", "OP1_Pressure", "PH_Vent");
+            AddPH("410", "OP1_Pressure", "PH_H2_Replace");
+            AddPH("410", "OP1_Pressure", "PH_N2_Pressurize");
+
+            AddPH("410", "OP1_Temperature", "PH_Coils", 1, false, 10, 95, 1, "°C");
+            AddPH("410", "OP1_Temperature", "PH_Vessels", 1, false, 10, 95, 1, "°C");
+
+            AddPH("410", "OP1_Sample", "PH_Sample");
 #if false
             #region Unit hydrogenerator
 

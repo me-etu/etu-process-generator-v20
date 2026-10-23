@@ -26,9 +26,11 @@ namespace TIA_LIB.Xml
 
             SiemensPortal.Current.GlobalDatablocks.Add(name, this);
 
-            UserGroup = SiemensPortal.Current.CreatePlcFolder("Datablocks");
+            UserGroup = Generation.ModularGenerationRuntime.Current == null ? SiemensPortal.Current.CreatePlcFolder("Datablocks") :
+                Generation.ModularGenerationRuntime.Current.FindGroup(new[] { "Datablocks" });
 
-            Xml = SiemensPortal.Current.ExportPlcBlock(UserGroup, Name, FileName);
+            Xml = UserGroup == null && Generation.ModularGenerationRuntime.Current != null ? null : SiemensPortal.Current.ExportPlcBlock(UserGroup, Name, FileName);
+            OriginalDocument = Xml == null ? null : new XElement(Xml);
             if (Xml != null)
             {
                 _AllowedCultures = GetCultures(Xml);
@@ -122,6 +124,7 @@ namespace TIA_LIB.Xml
         public bool HasChanged = false;
         private string _Name;
         public XElement Xml;
+        internal XElement OriginalDocument;
         public XElement SectionList;
         public string FileName;
         public PlcBlockUserGroup UserGroup;
@@ -150,6 +153,11 @@ namespace TIA_LIB.Xml
 
         private void PruneUnsupportedMultilingualTextItems()
         {
+            PruneUnsupportedMultilingualTextItems(Xml);
+        }
+
+        internal void PruneUnsupportedMultilingualTextItems(XElement document)
+        {
             if (_AllowedCultures == null || _AllowedCultures.Count == 0)
             {
                 _AllowedCultures = _ProjectCultures.Count > 0
@@ -157,7 +165,7 @@ namespace TIA_LIB.Xml
                     : new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "de-DE", "en-US" };
             }
 
-            var unsupportedItems = Xml
+            var unsupportedItems = document
                 .Descendants("MultilingualTextItem")
                 .Where(item =>
                 {

@@ -50,3 +50,6 @@ create_unit_template_workbook.ps1
 
 #Specs
 Specs/
+
+# Local generation ownership ledgers, PLC backups and commissioning-value snapshots
+GeneratedModels/

@@ -123,7 +123,7 @@ public static class OperationInterlockTests
         {
             var output = new StringWriter();
             Assert(OperationInterlockConfiguration.Select(new StringReader(pair[0]), output).ToString() == pair[1], "Selector input: " + pair[0]);
-            Assert(output.ToString().Contains("operation interlock FBs only"), "Selector scope.");
+            Assert(output.ToString().Contains("Select language for code generation:"), "Compatibility selector must use the general scope.");
         }
 
         foreach (SignalStagingMode mode in Enum.GetValues(typeof(SignalStagingMode)))

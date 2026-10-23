@@ -23,7 +23,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Offline fixture compilation failed.' }
 # Check the real integration/deployment boundary in addition to the pure fixtures.
 foreach ($version in '20', '21') {
     $program = [IO.File]::ReadAllText((Join-Path $root "etu-process-generator-TiAv$version/Program.cs"))
-    $selection = $program.IndexOf('PlcProject.InterlockLanguage = OperationInterlockConfiguration.Select(Console.In, Console.Out);')
+    $selection = $program.IndexOf('PlcProject.Language = TIA_LIB.Generation.GenerationConfiguration.Select(Console.In, Console.Out);')
     if ($selection -lt 0 -or $selection -gt $program.IndexOf('new Project();')) { throw "V$version selector is missing or too late." }
 }
 [xml]$v20 = Get-Content -LiteralPath (Join-Path $root 'TIAOpenness/TIA_Lib/TIA_LIB/TIA_LIB.csproj')

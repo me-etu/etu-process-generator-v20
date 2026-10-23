@@ -26,6 +26,35 @@ public static class ModularGenerationPlanTests
     }
     public static void Run()
     {
+        foreach (var answer in new[] { "", "1", "invalid\n2", "2" })
+        {
+            var output = new StringWriter();
+            var selected = GenerationConfiguration.Select(new StringReader(answer), output);
+            Check(selected == (answer.EndsWith("2") ? GenerationLanguage.Scl : GenerationLanguage.Fbd) && output.ToString().StartsWith("Select language for code generation:"), "General selector contract differs.");
+        }
+        var selection = new GenerationConfiguration();
+        Check(selection.Language == GenerationLanguage.Fbd, "FBD is not the default.");
+        selection.Language = GenerationLanguage.Scl;
+        Reject(() => selection.CompatibilityInterlockLanguage = TIA_LIB.OperationInterlockLanguage.Fbd, "conflicts");
+        selection.CompatibilityInterlockLanguage = TIA_LIB.OperationInterlockLanguage.Scl;
+        selection.Freeze(); selection.Language = GenerationLanguage.Scl;
+        Reject(() => selection.Language = GenerationLanguage.Fbd, "conflicts");
+        var legacyFirst = new GenerationConfiguration { CompatibilityInterlockLanguage = TIA_LIB.OperationInterlockLanguage.Scl };
+        Reject(() => legacyFirst.Language = GenerationLanguage.Fbd, "conflicts");
+        legacyFirst.Freeze();
+        Reject(() => legacyFirst.CompatibilityInterlockLanguage = TIA_LIB.OperationInterlockLanguage.Fbd, "before constructing");
+        var approvalPlan = XElement.Parse("<ConfigurationMigration Context='project|CPU'><OriginalCfgDataHash>snapshot</OriginalCfgDataHash><Unit Name='A_2'><Path Old='cfgData|A_2_PID-1' New='cfgData|A_2|PID-1' Type='typePIDCfg'/></Unit></ConfigurationMigration>");
+        var approval = ConfigurationMigrationApproval.CreateTemplate(approvalPlan);
+        Reject(() => ConfigurationMigrationApproval.Validate(approvalPlan, approval), "unknown consumers");
+        approval.SetAttributeValue("UnknownConsumers", "false");
+        foreach (string acknowledgement in new[] { "ExternalConsumersReviewed", "OfflineBackupVerified", "OnlineActualValuesAddressed", "LegacyMembersRetained", "DivergenceRiskAccepted" }) approval.Element(acknowledgement).Value = "true";
+        approval.Element("ExternalConsumerEvidence").Value = "Reviewed PLC/HMI/script references for the exact mapping; no unknown consumers remain.";
+        approval.Element("OnlineValueEvidence").Value = "Offline-only test project; actual online values are outside this execution and no download is made.";
+        ConfigurationMigrationApproval.Validate(approvalPlan, approval);
+        var stalePlan = new XElement(approvalPlan); stalePlan.Element("OriginalCfgDataHash").Value = "changed commissioning values";
+        Reject(() => ConfigurationMigrationApproval.Validate(stalePlan, approval), "exact project/CPU/plan");
+        var missingSymbol = new XElement(approval); missingSymbol.Element("Symbols").RemoveNodes();
+        Reject(() => ConfigurationMigrationApproval.Validate(approvalPlan, missingSymbol), "exact symbol/type");
         var controls = ModularControlContract.PlantToUnit();
         string[] expected = { "iReset=HMI.RESET", "iReset_Delayed=HMI.RESET_DELAYED", "iMode_Off=HMI.MODE_OFF", "iMode_Service=HMI.MODE_SERV", "iHSS=F_Safe.HSS" };
         Check(controls.Select(c => c.Input + "=" + string.Join(".", c.Source.Components)).SequenceEqual(expected), "Five-control golden contract differs.");
@@ -68,6 +97,30 @@ public static class ModularGenerationPlanTests
             new XAttribute("Name", "Static"), serialized.DatablockMember))).Validate(schema, (sender, error) => { throw error.Exception; });
         var emptyArtifacts = new ConfigurationArtifacts(new UnitConfigurationPlan("Empty", new ConfigurationLeaf[0]));
         Check(emptyArtifacts.Udt == null && emptyArtifacts.DatablockMember == null && emptyArtifacts.RequiredTypes.Count == 0, "Empty unit acquired a CFG artifact.");
+        XNamespace cfgNs = interfaceNs;
+        var ownedUdt = serialized.Udt;
+        var ownedMember = serialized.DatablockMember;
+        ownedUdt.Descendants(cfgNs + "Section").First().Add(new XElement(cfgNs + "Member", new XAttribute("Name", "ManualExtra"), new XAttribute("Datatype", "Real"), new XElement(cfgNs + "StartValue", "19.5")));
+        ownedMember.Descendants(cfgNs + "Section").First().Add(new XElement(cfgNs + "Member", new XAttribute("Name", "ManualExtra"), new XAttribute("Datatype", "Real"), new XElement(cfgNs + "StartValue", "29.5")));
+        ownedMember.Descendants(cfgNs + "StartValue").First().Value = "17.25";
+        string ownedSnapshot = ownedUdt.ToString() + ownedMember.ToString();
+        var additivePlan = new UnitConfigurationPlan("A_2", leaves.Concat(new[] { Leaf("A_2", "New-PID", "typePIDCfg") }));
+        var additive = new ConfigurationArtifacts(additivePlan, ownedUdt, ownedMember);
+        Check(additive.Udt.Descendants(cfgNs + "Section").First().Elements().Last().Attribute("Name").Value == "New-PID", "New CFG field not appended after retained/manual declarations.");
+        Check(additive.DatablockMember.Descendants(cfgNs + "StartValue").First().Value == "17.25" &&
+            additive.DatablockMember.Descendants(cfgNs + "Member").Single(m => (string)m.Attribute("Name") == "ManualExtra").Element(cfgNs + "StartValue").Value == "29.5", "Existing configuration overrides/manual fields were replaced by defaults.");
+        var existingSection = new XElement(cfgNs + "Section", new XAttribute("Name", "Static"), new XElement(ownedMember), new XElement(cfgNs + "Member", new XAttribute("Name", "UnrelatedUnit"), new XAttribute("Datatype", "Bool")));
+        var additiveProposal = additive.ProposeDatablockSection(existingSection);
+        Check(additiveProposal.Elements().Count() == 2 && XNode.DeepEquals(additiveProposal, additive.ProposeDatablockSection(additiveProposal)), "Additive CFG proposal duplicates members or is not idempotent.");
+        Check(ownedSnapshot == ownedUdt.ToString() + ownedMember.ToString(), "Owned CFG reconciliation modified input snapshots.");
+        new XDocument(new XElement(additive.Udt.Descendants(cfgNs + "Sections").First())).Validate(schema, (sender, error) => { throw error.Exception; });
+        new XDocument(new XElement(cfgNs + "Sections", additiveProposal)).Validate(schema, (sender, error) => { throw error.Exception; });
+        var wrongType = new XElement(ownedUdt);
+        wrongType.Descendants(cfgNs + "Member").First().SetAttributeValue("Datatype", "typePIDCfg");
+        Reject(() => new ConfigurationArtifacts(additivePlan, wrongType, ownedMember), "spelling/type");
+        var changedSection = new XElement(existingSection);
+        changedSection.Descendants(cfgNs + "StartValue").First().Value = "999";
+        Reject(() => additive.ProposeDatablockSection(changedSection), "changed");
         Check(!new UnitConfigurationPlan("Empty", new ConfigurationLeaf[0]).HasConfiguration, "Empty unit acquired configuration.");
         Check(new UnitConfigurationPlan("PID-only", new[] { Leaf("PID-only", "PIC-1", "typePIDCfg") }).HasConfiguration, "PID-only unit lost configuration.");
         Reject(() => new UnitConfigurationPlan("A_2", leaves.Concat(new[] { Leaf("A_2", "DI_X", "typePIDCfg") })), "collision");
@@ -110,6 +163,15 @@ public static class ModularGenerationPlanTests
         Reject(() => ArtifactSchedule.Order(new[] { new ArtifactDependency("Unit", "Missing") }), "Missing dependency");
         Reject(() => ArtifactSchedule.Order(new[] { new ArtifactDependency("A", "B"), new ArtifactDependency("B", "A") }), "cycle");
         Reject(() => ArtifactSchedule.Order(new[] { new ArtifactDependency("A"), new ArtifactDependency("a") }), "colliding");
+        var importTrace = new System.Collections.Generic.List<string>();
+        ArtifactBatchExecution.Execute(artifacts, () => importTrace.Add("preflight"), id => importTrace.Add(id));
+        Check(importTrace.SequenceEqual(new[] { "preflight" }.Concat(ordered)), "Batch imports precede preflight or reverse dependencies.");
+        importTrace.Clear();
+        Reject(() => ArtifactBatchExecution.Execute(artifacts, () => { throw new InvalidOperationException("preflight failed"); }, id => importTrace.Add(id)), "preflight failed");
+        Check(importTrace.Count == 0, "Import ran after failed batch preflight.");
+        Reject(() => ArtifactBatchExecution.Execute(artifacts, () => importTrace.Add("preflight"), id => {
+            importTrace.Add(id); if (id == "Operation") throw new InvalidOperationException("import failed"); }), "import failed");
+        Check(importTrace.SequenceEqual(new[] { "preflight", "Phase", "Interlocks", "Operation" }), "Dependent/unrelated callers imported after failure.");
         Console.WriteLine("PASS: G-017 planning foundation: explicit control/config ownership, metadata copies, category scheduling hazards and dependency graph. Runtime adapters/renderers are not exercised.");
     }
 }

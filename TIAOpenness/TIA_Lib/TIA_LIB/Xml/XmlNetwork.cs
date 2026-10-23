@@ -171,6 +171,30 @@ namespace TIA_LIB.Xml
             //}
             if (call == null) return;
 
+            // A reopened modular Unit already owns this CFG through its interface.
+            // Device constructors still spell their legacy declaration intent here;
+            // keep the finalized local binding instead of changing its components to
+            // cfgData while accidentally retaining LocalVariable scope.
+            if (Generation.ModularGenerationRuntime.Current != null && Block is XmlUnit && name == "CFG" && section == "Input" &&
+                isGlobal && value == "cfgData|" + Block.Name + "_" + call.InstName)
+            {
+                var endpoint = Xml.Descendants().SingleOrDefault(e => e.Name.LocalName == "NameCon" &&
+                    (string)e.Attribute("UId") == call.UId.ToString() && (string)e.Attribute("Name") == name);
+                var identifier = endpoint?.Parent.Elements().SingleOrDefault(e => e.Name.LocalName == "IdentCon");
+                XmlAccess existing;
+                if (identifier != null && Access.TryGetValue((int)identifier.Attribute("UId"), out existing))
+                {
+                    var symbol = existing as XmlGlobal;
+                    if (symbol != null && (string)symbol.Xml.Attribute("Scope") == "LocalVariable" && symbol.Components.SequenceEqual(new[] { "CFG", call.InstName }))
+                    {
+                        XmlParameter existingParameter;
+                        if (!call.Parameters.TryGetValue(name, out existingParameter) || existingParameter.Section != section || existingParameter.Type.Trim('"') != type.Trim('"'))
+                            throw new InvalidOperationException("Existing modular CFG parameter contract differs for " + Block.Name + "/" + call.InstName + ".");
+                        return;
+                    }
+                }
+            }
+
             var param = call.GetParameter(name, section, type, neg);
 
             SetPin(param, type, value, isGlobal);
@@ -206,11 +230,12 @@ namespace TIA_LIB.Xml
         {
             var param = call.GetParameter(name, section, type);
             
-            if (!OpenConWires.ContainsKey(param.Name.ToLower()))
+            if (!OpenConWires.ContainsKey(param.UId + "|" + param.Name))
             {
                 var wire = new XmlWire(this);
                 wire.AddOpenCon(param);
                 _Wires.Add(wire.Xml);
+                OpenConWires[param.UId + "|" + param.Name] = wire;
             }           
         }
         public XmlAccess GetPinValue(XmlPin pin)
@@ -236,6 +261,26 @@ namespace TIA_LIB.Xml
             var values = value.Split('|');          
             XmlAccess xvalue = null;
             string uid;
+
+            if (Generation.ModularGenerationRuntime.Current != null && !UIdIdentCon.ContainsKey(pin.UId + "|" + pin.Name))
+            {
+                var endpoint = _Wires.Descendants().SingleOrDefault(e => e.Name.LocalName == "NameCon" && (string)e.Attribute("UId") == pin.UId.ToString() && (string)e.Attribute("Name") == pin.Name);
+                var identifiers = endpoint?.Parent.Elements().Where(e => e.Name.LocalName == "IdentCon").ToArray();
+                if (identifiers != null && identifiers.Length == 1) UIdIdentCon[pin.UId + "|" + pin.Name] = (string)identifiers[0].Attribute("UId");
+                else if (endpoint != null && !endpoint.Parent.Elements().Any(e => e.Name.LocalName == "OpenCon"))
+                    throw new InvalidOperationException("Cannot replace explicit logic at " + Block.Name + "/" + Name + "/" + pin.Name + " with a simple operand. Preserve and reconcile the topology.");
+            }
+
+            if (Generation.ModularGenerationRuntime.Current != null && UIdIdentCon.TryGetValue(pin.UId + "|" + pin.Name, out uid) &&
+                Access.TryGetValue(Int32.Parse(uid), out xvalue))
+            {
+                string expectedScope = values.Length > 1 || isGlobal || isLocal ? (isGlobal ? "GlobalVariable" : "LocalVariable") : "LiteralConstant";
+                if ((string)xvalue.Xml.Attribute("Scope") != expectedScope)
+                {
+                    RebindOperand(pin, type, value, expectedScope);
+                    return;
+                }
+            }
 
             if (values.Count() == 1 && !isGlobal)
             {
@@ -311,6 +356,57 @@ namespace TIA_LIB.Xml
             wire.AddIdentCon(value);
             wire.AddNameCon(param);
             _Wires.Add(wire.Xml);
+            // Fresh networks need the same operand index as reopened networks. Without
+            // it, repeated helper declarations append another driver to the same pin.
+            UIdIdentCon[param.UId + "|" + param.Name] = value.UId.ToString();
+            OpenConWires.Remove(param.UId + "|" + param.Name);
+        }
+        void RebindOperand(XmlPin pin, string datatype, string value, string scope)
+        {
+            var endpoints = _Wires.Descendants().Where(e => e.Name.LocalName == "NameCon" &&
+                (string)e.Attribute("UId") == pin.UId.ToString() && (string)e.Attribute("Name") == pin.Name).ToArray();
+            Func<string, InvalidOperationException> invalid = detail => new InvalidOperationException("Cannot rebind " + Block.Name + "/" + Name +
+                "/" + pin.UId + "." + pin.Name + ": " + detail + ". Preserve and reconcile the existing topology.");
+            if (endpoints.Length != 1) throw invalid("expected one operand endpoint");
+            var oldWire = endpoints[0].Parent;
+            var identifiers = oldWire.Elements().Where(e => e.Name.LocalName == "IdentCon").ToArray();
+            var names = oldWire.Elements().Where(e => e.Name.LocalName == "NameCon").ToArray();
+            if (identifiers.Length != 1 || oldWire.Elements().Count() != names.Length + 1) throw invalid("expected one simple operand");
+            var wire = Wires.Values.Single(w => w.Xml == oldWire);
+            var oldAccess = Access[(int)identifiers[0].Attribute("UId")];
+            bool output = pin is XmlParameter ? ((XmlParameter)pin).Section == "Output" : pin.Name.StartsWith("out", StringComparison.OrdinalIgnoreCase);
+            if (output)
+                foreach (var other in names.Where(n => n != endpoints[0]))
+                {
+                    XmlParameter parameter; XmlLogic logic;
+                    bool consumer = Calls.Values.Any(c => c.UId.ToString() == (string)other.Attribute("UId") && c.Parameters.TryGetValue((string)other.Attribute("Name"), out parameter) && parameter.Section == "Input") ||
+                        (Int32.TryParse((string)other.Attribute("UId"), out int partId) && Logics.TryGetValue(partId, out logic) && ((string)other.Attribute("Name")).StartsWith("in", StringComparison.Ordinal));
+                    if (!consumer) throw invalid("output shares a wire with another producer/InOut");
+                }
+            int id = ++MaxUId;
+            XElement xml;
+            if (scope == "LiteralConstant")
+                xml = new XElement(_Namespace + "Access", new XAttribute("UId", id), new XAttribute("Scope", scope),
+                    new XElement(_Namespace + "Constant", new XElement(_Namespace + "ConstantType", datatype), new XElement(_Namespace + "ConstantValue", value)));
+            else
+                xml = new XElement(_Namespace + "Access", new XAttribute("UId", id), new XAttribute("Scope", scope),
+                    new XElement(_Namespace + "Symbol", value.Split('|').Where(c => c.Length != 0).Select(c => new XElement(_Namespace + "Component", new XAttribute("Name", c)))));
+            XmlAccess replacement = scope == "LiteralConstant" ? (XmlAccess)new XmlConstant(this, xml) : new XmlGlobal(this, xml);
+            Parts.AddFirst(xml);
+            if (names.Length == 1 || output) wire.ReplaceIdentCon(replacement);
+            else
+            {
+                endpoints[0].Remove(); wire.Pins.RemoveAll(p => p.UId == pin.UId && p.Name == pin.Name);
+                wire = new XmlWire(this); wire.AddIdentCon(replacement); wire.AddNameCon(pin);
+                foreach (var element in wire.Xml.DescendantsAndSelf()) element.Name = _Namespace + element.Name.LocalName;
+                _Wires.Add(wire.Xml);
+            }
+            if (!wire.Contains(pin)) wire.Pins.Add(pin);
+            wire.Value = replacement; UIdIdentCon[pin.UId + "|" + pin.Name] = id.ToString();
+            OpenConWires.Remove(pin.UId + "|" + pin.Name);
+            if (!_Wires.Descendants().Any(e => e.Name.LocalName == "IdentCon" && (string)e.Attribute("UId") == oldAccess.UId.ToString()))
+            { oldAccess.Xml.Remove(); Access.Remove(oldAccess.UId); }
+            Block.HasChanged = true;
         }
         internal void ConfigureSfcHss(XmlCall call)
         {

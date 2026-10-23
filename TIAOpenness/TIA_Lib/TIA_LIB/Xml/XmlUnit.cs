@@ -12,7 +12,7 @@ namespace TIA_LIB.Xml
 {
     public class XmlUnit : XmlBlock
     {
-        public XmlUnit(String name) : base(XmlPlant.Current.UserGroup, name, name + ".xml", "Xml/EmptyUnit.xml", name, true)
+        public XmlUnit(String name) : base(XmlPlant.Current.UserGroup, name, name + ".xml", "Xml/EmptyUnit.xml", name, true, parentBlock: XmlPlant.Current)
         {
             Name = name;
 

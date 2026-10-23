@@ -19,8 +19,8 @@ namespace TIA_LIB.Generation
         }
     }
 
-    // Keeps non-device networks at their original execution boundary. A single Devices
-    // group may not cross an operation or a hand-authored network to improve appearance.
+    // Device regrouping may cross another generated network only after proving that
+    // it does not reverse a read/write dependency. Manual networks are not adapted.
     public sealed class GeneratedBlockBody
     {
         public ReadOnlyCollection<GeneratedLogicalNetwork> Networks { get; }
@@ -33,12 +33,13 @@ namespace TIA_LIB.Generation
             if (devices.Length != 0)
             {
                 int start = original.IndexOf(devices[0]);
-                if (original.Skip(start).Take(devices.Length).Any(n => !n.Category.HasValue))
-                    throw new InvalidOperationException("Device grouping crosses a non-device execution boundary. Reconcile the original schedule explicitly.");
                 var schedule = DeviceSchedule.Group(devices.Select(n => new ScheduledNetwork(n.Body.Identity, n.Body.Title, n.Category.Value, n.Body.Reads, n.Body.Writes)));
                 var byId = devices.ToDictionary(n => n.Body.Identity);
-                original.RemoveRange(start, devices.Length);
-                original.InsertRange(start, schedule.Select(n => byId[n.Identity]));
+                var grouped = original.Where(n => !n.Category.HasValue).ToList();
+                grouped.InsertRange(start, schedule.Select(n => byId[n.Identity]));
+                DeviceSchedule.ValidateOrder(original.Select(n => new ScheduledNetwork(n.Body.Identity, n.Body.Title,
+                    n.Category ?? DeviceCategory.Digital_Sensors, n.Body.Reads, n.Body.Writes)), grouped.Select(n => n.Body.Identity));
+                original = grouped;
             }
             Networks = original.AsReadOnly();
         }

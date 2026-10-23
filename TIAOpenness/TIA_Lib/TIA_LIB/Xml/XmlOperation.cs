@@ -12,7 +12,7 @@ namespace TIA_LIB.Xml
 {
     public class XmlOperation : XmlBlock
     {
-        public XmlOperation(XmlUnit unit, string name): base(unit.UserGroup, name, unit.Name + "_" + name + ".xml", "Xml/EmptyOperation.xml", "", false)
+        public XmlOperation(XmlUnit unit, string name): base(unit.UserGroup, name, unit.Name + "_" + name + ".xml", "Xml/EmptyOperation.xml", "", false, parentBlock: unit)
         {
             XmlCall call = null;
             Unit  = unit;

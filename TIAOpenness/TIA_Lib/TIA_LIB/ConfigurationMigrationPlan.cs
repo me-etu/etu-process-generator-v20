@@ -31,10 +31,24 @@ namespace TIA_LIB.Generation
             Configuration = configuration;
             ExistingLegacyMembers = existing.ToList().AsReadOnly();
         }
-        public static ConfigurationMigrationPlan Inspect(XmlUnit unit, XElement originalCfgDataSection)
+        public static ConfigurationMigrationPlan Inspect(XmlUnit unit, XElement originalCfgDataSection, XElement ownedUnitType = null)
         {
             var leaves = new List<ConfigurationLeaf>();
             var existing = new List<string>();
+            string safeUnit = SignalStaging.SignalStagingInventory.SafeName(unit.Name);
+            var nested = originalCfgDataSection?.Elements().SingleOrDefault(e => e.Name.LocalName == "Member" &&
+                string.Equals((string)e.Attribute("Name"), safeUnit, StringComparison.OrdinalIgnoreCase));
+            XElement ownedSection = null;
+            if (ownedUnitType != null)
+            {
+                string expected = "udtCfg_" + safeUnit;
+                if (nested == null || (string)nested.Attribute("Name") != safeUnit || ((string)nested.Attribute("Datatype"))?.Trim('"') != expected ||
+                    (string)ownedUnitType.Element("SW.Types.PlcStruct")?.Element("AttributeList")?.Element("Name") != expected)
+                    throw new InvalidOperationException("Owned configuration type/member identity differs for " + unit.Name + ".");
+                ownedSection = ownedUnitType.Descendants().FirstOrDefault(e => e.Name.LocalName == "Sections")?.Elements().SingleOrDefault(e =>
+                    e.Name.LocalName == "Section" && (string)e.Attribute("Name") == "None");
+                if (ownedSection == null) throw new InvalidOperationException("Missing owned configuration type fields for " + unit.Name + ".");
+            }
             // Network XML order is used instead of Dictionary enumeration order.
             var networks = unit.Xml.Descendants("SW.Blocks.CompileUnit").ToArray();
             var devices = unit.Devices.Values.OrderBy(d => Array.FindIndex(networks, n => n == unit.FindNetwork(d.TagName)?.Xml));
@@ -58,8 +72,10 @@ namespace TIA_LIB.Generation
                 bool local = symbol != null && (string)symbol.Xml.Attribute("Scope") == "LocalVariable" && symbol.Components.SequenceEqual(new[] { "CFG", call.InstName });
                 if (!legacy && !local) throw new InvalidOperationException("CFG ownership differs for " + unit.Name + "/" + call.InstName + "; reconcile the manual source explicitly.");
 
-                var members = originalCfgDataSection == null ? new XElement[0] : originalCfgDataSection.Elements().Where(e =>
-                    e.Name.LocalName == "Member" && (string)e.Attribute("Name") == oldName).ToArray();
+                var memberSource = ownedSection ?? originalCfgDataSection;
+                string memberName = ownedSection == null ? oldName : call.InstName;
+                var members = memberSource == null ? new XElement[0] : memberSource.Elements().Where(e =>
+                    e.Name.LocalName == "Member" && (string)e.Attribute("Name") == memberName).ToArray();
                 if (members.Length > 1) throw new InvalidOperationException("Duplicate legacy CFG member " + oldName + ".");
                 XElement member;
                 if (members.Length == 1)
@@ -67,11 +83,11 @@ namespace TIA_LIB.Generation
                     member = members[0];
                     if (((string)member.Attribute("Datatype"))?.Trim('"') != parameter.Type.Trim('"'))
                         throw new InvalidOperationException("Configuration type collision for " + oldName + ".");
-                    existing.Add(oldName);
+                    if (ownedSection == null) existing.Add(oldName);
                 }
                 else
                 {
-                    if (local) throw new InvalidOperationException("Existing local CFG requires its unit UDT/member snapshot for " + unit.Name + "/" + call.InstName + ".");
+                    if (local && ownedSection == null) throw new InvalidOperationException("Existing local CFG requires its unit UDT/member snapshot for " + unit.Name + "/" + call.InstName + ".");
                     member = new XElement("Member", new XAttribute("Name", oldName), new XAttribute("Datatype", parameter.Type));
                 }
                 leaves.Add(new ConfigurationLeaf(unit.Name, call.InstName, member));
@@ -81,7 +97,7 @@ namespace TIA_LIB.Generation
             {
                 var collision = originalCfgDataSection.Elements().FirstOrDefault(e => e.Name.LocalName == "Member" &&
                     string.Equals((string)e.Attribute("Name"), configuration.SafeUnit, StringComparison.OrdinalIgnoreCase));
-                if (collision != null)
+                if (collision != null && ownedSection == null)
                     throw new InvalidOperationException("Existing cfgData unit member '" + configuration.SafeUnit +
                         "' needs explicit UDT/value/manual-field reconciliation before rebuilding configuration.");
             }

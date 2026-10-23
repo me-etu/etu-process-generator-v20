@@ -33,17 +33,10 @@ namespace TIA_LIB
 
         public static OperationInterlockLanguage Select(TextReader input, TextWriter output)
         {
-            while (true)
-            {
-                output.WriteLine("Select language for operation interlock FBs only:");
-                output.WriteLine("1. FBD (default)");
-                output.WriteLine("2. SCL");
-                output.Write("Choice [1]: ");
-                string choice = input.ReadLine();
-                if (string.IsNullOrWhiteSpace(choice) || choice.Trim() == "1") return OperationInterlockLanguage.Fbd;
-                if (choice.Trim() == "2") return OperationInterlockLanguage.Scl;
-                output.WriteLine("Invalid choice. Enter 1 or 2.");
-            }
+            // Compatibility selector. PlcProject.InterlockLanguage now selects the
+            // general backend; the old type must not advertise interlock-only scope.
+            return Generation.GenerationConfiguration.Select(input, output) == Generation.GenerationLanguage.Scl
+                ? OperationInterlockLanguage.Scl : OperationInterlockLanguage.Fbd;
         }
     }
 

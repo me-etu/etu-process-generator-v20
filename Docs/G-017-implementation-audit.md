@@ -1,292 +1,224 @@
-# G-017 implementation audit and planning checkpoint
+# G-017 implementation and validation audit
 
-Baseline: `main` at `398aa7f`. Work branch: `g-017-modular-generation`.
-This checkpoint is **not an enabled global FBD/SCL generator**. Existing runtime
-selection, interfaces, configuration paths and upload behavior are unchanged.
+Audited 2026-10-23. Baseline `main` at `398aa7f`; work branch
+`g-017-modular-generation`. This replaces the preparation-only checkpoint.
+The modular runtime is now connected to both app entry points and PlcProject.
+No live generator execution, PLC import/download, external file edits or network
+access was performed during implementation. The user's V21 Project.cs changes
+are retained separately from implementation commits.
 
-## User clarification
+## Implemented call path
 
-On 2026-10-22 the user explicitly chose to keep the existing global reset
-references in standalone `fbTPs`/`fbRPs` for this upgrade. Their `HMI.RESET`
-references are an intentional exception to Unit-local control routing.
-Do not move these helpers into Units or introduce another invocation of them.
+1. Both Program.cs entry points parse optional migration approval, ask exactly
+   `Select language for code generation:` (Enter/FBD or explicit SCL), then ask
+   for hardware staging independently.
+2. PlcProject freezes configuration, connects through the existing Portal path,
+   creates ModularGenerationRuntime, then constructs Plant and the Add models.
+   Existing project compilation remains part of the previous constructor flow.
+3. Constructors use read-only folder lookup and defer target-folder creation.
+   Managed exports restore an editable shadow after checking ownership; manual
+   or unowned SCL bodies stop immediately. Unowned FBD may be inventoried but
+   cannot be replaced by preflight.
+4. CreateTags prepares routing, configuration and rendered artifacts before tag
+   mutations. Generated staging first builds its inventory artifacts in memory.
+   The batch exports backups, checks names/types/pins/ownership and computes
+   the actual dependency graph before any artifact import.
+5. Upload rechecks generated artifacts and exported external dependency snapshots,
+   then materializes folders. Each datatype/block/instance is imported and
+   compiled before dependent callers. Failure retains source/diagnostics and
+   prevents all later imports. Existing instance DB exports are reimported to
+   retain offline overrides; live growth/retention remains a validation gap.
 
-## Evidence and limits
+## Checked library contracts and decisions
 
-- `C:/Users/User/Desktop/info/spec_details.md` is requirements prose, not PLC
-  block/type implementations. Read only; no external file was changed.
-- Retained trial `etu-process-generator-TiAv21/bin/Debug/fbA2.xml`, last written
-  2026-10-21 14:14:31, contains expanded Static instance interfaces. SHA256:
-  `6716A149AD59BF07E0BDD25C72173AFD330CEC117AD33173DF12EF0B0B71E824`.
-- That trial proves the interfaces below at that time. Its controller interface
-  lacks HSS, so it is not evidence of the updated controller definition. The
-  user's successful G-016 run is runtime confirmation of that change, but is
-  not a retained definition/body export.
-- The trial contains no `fbMotS` instance and no vendor/device implementation
-  bodies. Expanded configuration members are not an export of persistent
-  `cfgData` start values or a capture of online actual values.
-- V21 `TiaPortal.GetProcesses()` metadata enumeration returned no processes
-  during this audit. No session was attached, project compiled, or live export,
-  import, conversion or download performed.
+All evidence files below were supplied by the user in
+`C:/Users/User/Desktop/info`, read only, and not copied into the public repo.
 
-## Checked contract table
+| Export | SHA256 |
+| --- | --- |
+| library_types.scl | 5840433D57A15BF14FC96D050BF4F9494BF9BF9EBF4B84AEED66C0C5B2605D71 |
+| cfgData.db | 5B1A5B5D90C1FDA7CFEDA604457594BB0E1FFA442D61339D94BA5DC919F27D05 |
+| fbControlSfc.scl | 961773010BCA915F735AE89EDC98A1617A8048A35528570C02020F3C2ED6EFA0 |
+| fbPIDCtrl.scl | AAB5251B32B94B8B1ED7EB9481341D95F6C1250982F4638CFC89BF1F1C41BAEF |
+| typePIDCfg.udt | 0B9CF20BD7623198E68823CABAC7D0554FD81C7E2900412FC80759CFA8D50110 |
 
-### Additional current exports supplied during the audit
+The earlier fbA2.xml trial hash was
+`6716A149AD59BF07E0BDD25C72173AFD330CEC117AD33173DF12EF0B0B71E824`.
+It predates HSS and lacks fbMotS; the supplied current definitions resolve these
+contract gaps. No library-definition evidence is still outstanding.
 
-The user subsequently supplied two read-only evidence files in Desktop/info:
-
-- `library_types.scl` (208170 bytes), SHA256
-  `5840433D57A15BF14FC96D050BF4F9494BF9BF9EBF4B84AEED66C0C5B2605D71`.
-  It defines nine FBs and seven types, including fbMotS/typeMotorCfg. The six
-  non-PID device families all declare CFG in VAR_INPUT. Inspection found no
-  ordinary direct CFG assignment in those exported implementations; a lexical
-  assignment scan alone is not a complete alias/dataflow proof.
-- `cfgData.db` (16757 bytes), SHA256
-  `5B1A5B5D90C1FDA7CFEDA604457594BB0E1FFA442D61339D94BA5DC919F27D05`.
-  Its VAR RETAIN declarations reference 96 typeAnalogCfg, 35 typeDigitalCfg,
-  65 typeValveCfg, 10 typeValveSpCfg, four typeMotorSpCfg, two typeMotorCfg
-  and 13 typePIDCfg members. There are 20 explicit BEGIN initialization
-  assignments, including alarm text-list/index and permission/feature settings.
-  Preserve these, retention and S7_SetPoint metadata. They are offline source
-  initializers, not a capture of online actual values.
-
-The bundle does **not** define fbControlSfc, fbPIDCtrl or typePIDCfg. Of quoted
-declaration type dependencies in these two files, typePIDCfg is the unresolved
-one. The older trial contains an expanded PID CFG input, but not the current
-PID implementation. The remaining three definitions were requested from the
-user. No external files were modified or copied into the public repository.
-
-The table below records the original retained-trial findings; the new source
-export now resolves its fbMotS gap. Current controller/PID evidence remains
-incomplete until the missing definitions are supplied.
-
-### Completed controller/PID contract evidence
-
-The user subsequently supplied all three remaining definitions:
-
-| Export | SHA256 | Verified contract |
+| Target | CFG Input type | Control contract used |
 | --- | --- | --- |
-| fbControlSfc.scl | 961773010BCA915F735AE89EDC98A1617A8048A35528570C02020F3C2ED6EFA0 | Version 1.0, Input HSS/Reset : Bool, InterfaceInOut : DWord in VAR_IN_OUT |
-| fbPIDCtrl.scl | AAB5251B32B94B8B1ED7EB9481341D95F6C1250982F4638CFC89BF1F1C41BAEF | Version 1.0, CFG : typePIDCfg in VAR_INPUT; no direct CFG assignment found |
-| typePIDCfg.udt | 0B9CF20BD7623198E68823CABAC7D0554FD81C7E2900412FC80759CFA8D50110 | Version 0.1, split-range instruction metadata/defaults, permissions/features and AlarmBlock defaults |
+| fbMonDi | typeDigitalCfg | RESET |
+| fbMonAn | typeAnalogCfg | RESET |
+| fbVlv2Out | typeValveCfg | RESET, PROT |
+| fbVlvCtrl | typeValveSpCfg | RESET, PROT |
+| fbMotS | typeMotorCfg | RESET, PROT |
+| fbMotAn | typeMotorSpCfg | RESET, PROT |
+| fbPIDCtrl | typePIDCfg | RESET |
+| fbControlSfc | none | HSS/Reset Input Bool; InterfaceInOut InOut DWord |
+| fbUnit | none | ALARM/WARN/OP_REQ/FUNC_TEXT; no mode inputs |
 
-The three-file evidence gap is closed. All seven device CFG contracts are
-Input. Unit CFG direction is therefore Input, preserving the existing read-only
-caller contract. These are current offline exports, not online-value captures.
-fbControlSfc consumes HSS directly in its protection/held-state conditions;
-do not invert it. The operation selector's unassigned Reset still must not be
-silently changed to delayed reset. No provided library implementation is edited.
+All seven CFG pins are VAR_INPUT; no ordinary direct CFG assignment was found
+in the supplied implementations. This establishes the existing caller contract,
+not a proof of absence of every possible hidden vendor global write. Unit CFG
+is Input accordingly. fbUnit/fbControlSfc expose no mode pins to map; the five
+requested Unit controls still exist without invented vendor connections.
 
-| Called library FB | Retained trial evidence | Configuration | Control pins checked |
-| --- | --- | --- | --- |
-| fbUnit | A2 instance | None | Inputs ALARM, WARN, OP_REQ, FUNC_TEXT; outputs QALARM, QWARN, QOP_REQ |
-| fbControlSfc | sfc_A2 instance, older version | None | Input Reset : Bool; no HSS, MODE_OFF or MODE_SERV input in this snapshot |
-| fbMonAn | FI1006 and other instances | Input CFG : typeAnalogCfg | Input RESET : Bool |
-| fbMonDi | LS1181 and other instances | Input CFG : typeDigitalCfg | Input RESET : Bool |
-| fbVlv2Out | VV1003 and other instances | Input CFG : typeValveCfg | Input RESET, PROT, PROT_EN : Bool |
-| fbVlvCtrl | VV1000 and other instances | Input CFG : typeValveSpCfg | Input RESET, PROT, PROT_EN : Bool |
-| fbMotS | Not present | Caller declares Input CFG : typeMotorCfg; target definition unverified | Caller declares RESET/PROT; target definition unverified |
-| fbMotAn | AG110-M001 instance | Input CFG : typeMotorSpCfg | Input RESET, PROT, PROT_EN : Bool |
-| fbPIDCtrl | TIC-1174 and other instances | Input CFG : typePIDCfg | Input RESET : Bool |
+The cfgData export contains 225 flat members and 20 explicit offline initializers,
+VAR RETAIN and S7_SetPoint metadata. These are not online actual-value captures.
 
-All six retained CFG interfaces are Input. This supports Input as the proposed
-Unit CFG direction; it does not prove the seventh current target contract or
-absence of hidden global writes in device implementations. No mode-pin mapping
-may be invented on fbUnit: the checked wrapper has none. The five requested
-Unit interface spellings and Plant global operands are specified independently.
+## Interfaces and executable scope
 
-## Executable artifact inventory
+| Consumer | Generated binding |
+| --- | --- |
+| Plant -> Unit iReset/iReset_Delayed | HMI.RESET / HMI.RESET_DELAYED |
+| Plant -> Unit iMode_Off/iMode_Service | HMI.MODE_OFF / HMI.MODE_SERV |
+| Plant -> Unit iHSS | F_Safe.HSS |
+| Unit controller Reset/HSS | local iReset / iHSS |
+| Device RESET / applicable PROT | local iReset / iHSS |
+| Unit -> Operation HSS/Delayed_Reset | local iHSS / iReset_Delayed |
+| Operation selector HSS | local HSS; Reset stays unassigned |
+| Operation's phase controllers HSS/Reset | local HSS / Delayed_Reset |
+| Device/monitor CFG | local CFG.<exact-instance> |
+| Standalone Tp/Rp RESET | global HMI.RESET, retained by user instruction |
+| Extra monitor RESET_CYCL | existing global, separate cyclic-reset semantics |
 
-| Owner / creation path | Current executable content | G-017 responsibility |
+No HMI/F_Safe DB fallback is created. Phase bodies have no hidden HMI/F_Safe
+controls and acquire no unused control parameters. Tp/Rp remain standalone with
+external callers; no extra Plant invocation is generated.
+
+Both backends implement Unit/Operation/device/helper logic, phases, operation
+interlocks and standalone Tp/Rp. Plant remains FBD and preserves unrelated/manual
+networks; vendor FB definitions remain external. Empty/PID-only and both hardware
+staging modes use the same controls and configuration rules.
+
+GeneratedNetworkModel adapts only the supported generated FB/A/O grammar, with
+explicit pin directions, negation, EN, InOut, output fanout and OR aggregation.
+Unknown/manual instructions, duplicate drivers, unconsumed wiring and unsafe
+schedules reject with context. GeneratedPhaseModel implements the audited fresh
+EmptyPhase-1 body; edited templates/manual phase bodies cannot be auto-converted.
+PhaseFbdRenderer emits real FlgNet/v5 networks (including set/reset coils for
+conditional writes), with no hidden SCL fallback. Native instruction import
+semantics still need live validation.
+
+SCL is tokenized StructuredText/v3 inside SimaticML rather than external-source
+FB declarations. This deliberate implementation choice preserves the XML
+interface's expanded instruction/version/access/comment metadata. G-014's older
+external-source backend remains compatibility code with regression coverage.
+
+Devices group as Digital_Sensors, Analog_Sensors, Digital_Valves, Analog_Valves,
+Motors_Direct, Motors_Control, PID_Controllers, retaining first declaration order
+within categories. Monitors/Intlck7 helpers stay with their owner. SCL nests exact
+original titles in Devices/category regions; FBD keeps exact titles with structural
+comments. Reversed read/write dependencies, including enclosing-instance/field
+aliases, stop grouping. Stateful call duplication is prohibited. Reordering
+independent device instances still requires the stated live timing check.
+
+Both FBD and SCL interlock starters now assign FALSE cyclically to all 50 general
+and 50 per-phase preconditions. State Program_Alarm remains declared, not newly
+called. These are starter process defaults, not initialization assignments.
+
+## Managed regeneration and migration
+
+Ownership format v1 is whole-block and conservative. After import, successful
+compile and export, it records context/name/language/export fingerprint plus an
+editable XML model shadow and staging mode. Fingerprints normalize serialization
+IDs but retain logic/interfaces/comments/start values. A matching record restores
+the owned body and retains the current compiler-expanded interface. Manual edits,
+missing/corrupt ownership and language/staging changes stop; no regex SCL merge
+or automatic pre-G-017 adoption is enabled. Compatible records permit new generated
+devices/phases while preserving declared metadata. PLC re-export stability is not
+yet live verified.
+
+Keep `GeneratedModels/<project-CPU-hash>` under the app's working directory across
+runs. It contains ledgers and private run backups, generated XML, configuration
+plans and diagnostics and is ignored by Git. Changing project path, CPU or working
+directory does not silently adopt another ledger.
+
+Per-unit UDT/member proposals merge existing owned configuration and staging types
+additively, retaining defaults, metadata and manual fields. Exact configured calls
+supply ownership; old flat names are not parsed by splitting underscores. Fresh
+constructor-only aliases are removed from the proposal, while original flat
+members remain. Fresh empty Units omit CFG/UDT; PID-only Units have PID CFG and no
+hardware IO. Type/name/spelling collisions stop before import.
+
+Legacy migration writes `configuration-plan.xml` and an approval template before
+imports. The default template has UnknownConsumers=true and all acknowledgments
+false. A reviewed approval must match context, original cfgData fingerprint and
+all old/new/type mappings, supply external-consumer and online-value evidence,
+and acknowledge verified backup, retained flat members and divergence risk.
+Invoke with `--configuration-migration-approval <reviewed-approval.xml>` after
+review. Unknown consumers/stale plans are rejected. This does not waive the
+independent manual-body/ownership checks. HMI/scripts are not automatically
+rewritten; old/new values may diverge and there is no dual-write synchronization.
+Online actual values must be protected separately; no download is performed.
+
+## Validation on 2026-10-23
+
+Build commands (installed VS 18 MSBuild; actual V21 APIs):
+
+```powershell
+$msbuild = 'C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe'
+& $msbuild etu-process-generator-TiAv21/etu-process-generator-TiAv21.csproj /p:Configuration=Debug /p:Platform=x64 /m /v:minimal
+& $msbuild etu-process-generator-TiAv21/etu-process-generator-TiAv21.csproj /p:Configuration=Debug /p:Platform=AnyCPU /m /v:minimal
+```
+
+Both pass with existing unreachable-code/unused-field/unused-user-variable warnings.
+Run each suite with `powershell -NoProfile -ExecutionPolicy Bypass -File`:
+
+| Script under Tests/ | Evidence |
+| --- | --- |
+| Verify-ModularGenerationPlan.ps1 | ownership/configuration metadata, additive merges, approvals, stale/missing evidence, scheduling hazards and batch failure gates |
+| Verify-GeneratedNetworkModel.ps1 | supported FB/Boolean expressions, typed directions, scopes, EN/negation/fanout, Unicode regions and rejection fixtures |
+| Verify-GeneratedPhaseModel.ps1 | 4096 scans across 2048 two-scan sequences against independent template oracle and emitted FBD interpreter, call/write traces, timer/alarm arguments, exact labels and installed FlgNet XSD |
+| Verify-ManagedArtifactOwnership.ps1 | immutable ledger, identity normalization, metadata restore, manual/corrupt/language protection |
+| Verify-ModularControlRouting.ps1 | actual runtime dependency scanner/rendering, seven families plus monitors/ordinary+safe helpers, both languages/modes/v4-v5, local CFG constructor reentry, operand transitions, standalone helpers, empty/PID-only |
+| Verify-SfcHss.ps1 | exact endpoints, controller routes, reopening, scope reconciliation, ambiguity/idempotence |
+| Verify-DeviceStagingInputs.ps1 | PID no-IO, disabled inputs and edited/added seven-family regeneration |
+| Verify-DeviceInstanceComments.ps1 | Static descriptions, helpers, languages/schema and manual content |
+| Verify-OperationInterlocks.ps1 | legacy G-014 renderer/backend guards plus general selectors and aligned project source/content lists |
+| Verify-V21StagingXml.ps1 | real serializers, V21 metadata and installed interface XSD |
+
+All ten pass against x64 and AnyCPU outputs. AnyCPU uses
+`-LibraryPath ./etu-process-generator-TiAv21/bin/Debug/TIA_LIB.dll`.
+`git diff --check` passes. Tests bypass Portal constructors and never Upload.
+Full local logs are retained in the ignored directory
+`TIAOpenness/TIA_Lib/TIA_LIB/obj/G017-verification-20261023-084104`.
+
+Installed local Openness help/API evidence: StructuredText/v3 and FlgNet/v5
+schemas, G-014 topics 131792485771/119205656075, and topic 58295603339 confirming
+ICompilable on PlcType. Both explicit csproj Compile/Content lists align. V20
+standard APIs are not installed. Attempted
+`& $msbuild etu-process-generator-TiAv20/etu-process-generator-TiAv20.csproj /p:Configuration=Debug /p:Platform=x64 /m /v:minimal`
+exited 1 with CS0246 (Siemens namespaces/assemblies missing); see build-V20.log.
+V20 API compatibility remains unverified; V21 build success is not represented
+as V20 API validation.
+
+## Acceptance criteria
+
+Pass below means the specified implementation/offline evidence, with live results
+reported separately as required by AC-8.
+
+| Criterion | Status | Evidence / limit |
 | --- | --- | --- |
-| XmlPlant.GetUnit | FBD global instance call to fb<Unit>, en and completed-inventory staging bindings | Keep FBD, preserve manual Plant networks, add five controls and optional CFG |
-| XmlUnit | fbUnit wrapper/status aggregation, fbIntlck50 preconditions, fbControlSfc selector, device/operation networks | Shared model; FBD and SCL renderers; explicit controls and CFG |
-| XmlOperation | fbControlSfc selector, interlocks, phase preconditions/controllers/calls | Explicit HSS/Delayed_Reset, correct selector and phase-controller scope |
-| XmlPhase | StructuredText template with control flow and stateful instruction/library calls | Real FBD equivalent and SCL body, not a language attribute substitution |
-| XmlInterlock | FBD template or G-014 SCL source | Preserve preflight and existing-content protection under general selection |
-| AddTp / AddRp | Standalone fbTPs/fbRPs, globally instanced fbTP/fbRP calls | Selected executable backend; retain HMI.RESET by user instruction |
-| Hardware UDTs / dbIO | Declarations from hardware inventory | Keep schemas independent of language; PID contributes no IO |
-| Configuration DB | Side-effect registration through XmlGlobal / GetValueFromGlobalDB | Replace implicit ownership collection with explicit inventory/migration planning |
+| AC-1 general language scope | Pass | Both entry points/runtime wired; real FBD phase rendering; Plant/vendor exceptions |
+| AC-2 interfaces and routing | Pass | Integrated both-language/mode/v4-v5 fixtures; supplied library contracts |
+| AC-3 grouping | Pass | Seven categories, exact titles, helper ownership and hazard counterexamples |
+| AC-4 model/parity | Pass | Independent phase oracle/FBD interpreter, supported network fixtures, exactly-once and rejection checks; PLC timing untested |
+| AC-5 CFG inventory/direction | Pass | Seven families/monitors/PID once; Input evidence, immutable/additive metadata/value fixtures |
+| AC-6 deployed legacy migration | Not tested | Review/approval/preservation guards tested offline; real external consumers, HMI and online values not exercised |
+| AC-7 empty/PID/regressions | Pass | Ten offline suites, explicit G-016 routing supersession |
+| AC-8 V21/offline and gap reporting | Pass | Two V21 configurations pass; V20/live gaps stated |
 
-The generator creates no Plant call to standalone fbTPs/fbRPs. Their external
-execution/caller ownership must not be replaced by guessed extra calls.
-Current Upload imports Plant before many generated callers' prerequisites.
-Global modular generation needs an explicit dependency graph and failure gate,
-not an extension of that current category loop.
+## Remaining live verification
 
-## Consumer and ownership map
-
-| Consumer | Current operand | Planned scope / constraint |
-| --- | --- | --- |
-| Unit fbControlSfc.Reset | HMI.RESET | Local iReset |
-| Unit fbControlSfc.HSS | F_Safe.HSS via G-016 | Local iHSS |
-| Base devices RESET | HMI.RESET | Local iReset |
-| Valve/motor PROT | F_Safe.HSS | Local iHSS, preserve polarity |
-| Extra Analog/Digital monitor RESET | RESET_CYCL global tag | Separate existing cyclic-reset semantics; not one of the five replaced globals, do not silently substitute immediate reset |
-| Operation controller HSS | F_Safe.HSS via G-016 | Operation local HSS |
-| Phase controller HSS | F_Safe.HSS via G-016 | Operation local HSS; controller resides in Operation FB |
-| Phase controller Reset | HMI.RESET_DELAYED | Operation local Delayed_Reset |
-| Operation selector Reset | No current generated assignment | Do not newly assign delayed reset without a confirmed behavioral requirement |
-| iMode_Off / iMode_Service | No current generated mode consumer found | Add requested Unit interface/binding; do not guess wrapper pins |
-| Device CFG | cfgData.<unit>_<exact instance> | Unit local CFG.<exact instance> |
-| Standalone Tp/Rp RESET | HMI.RESET | Keep global by explicit user clarification |
-
-Analog and Digital create base configuration plus each configured `_InstanceN`
-configuration. The other five families create their one device configuration.
-Ordinary/safe `fbIntlck7` helper calls remain with their owning device; no
-separate configuration registration was found for those helper calls.
-Collect exact names at declaration time; never recover Unit/device ownership
-by splitting underscores in a legacy flat name.
-
-## Phase template audit
-
-`EmptyPhase.xml` contains COMMANDS, FUNCTION, S10 - (with trailing spaces),
-S20 - (with trailing spaces), MESSAGES, OPERATOR REQUEST, TRANSFER, TIMER and
-STATUS regions. Preserve exact labels from the XML rather than this prose.
-It contains IF/ELSIF, CASE, incremental step assignment, bit-oriented command
-and status accesses, five Program_Alarm messages, fbOpMsg instances,
-fbTransfer, fbTimer and an alarm block. It has no GlobalVariable access to
-HMI/F_Safe in the checked template. Rendering only its assignments, or changing
-ProgrammingLanguage to FBD, would discard control flow and instruction calls.
-
-## Scan-order examples and completed pure planning work
-
-`ModularGenerationPlan.cs` supplies isolated, immutable planning primitives:
-
-- Explicit component/scoped references and the exact five-control/Operation
-  forwarding contract; no Portal access or HMI/F_Safe member creation.
-- Exact configuration ownership and old/new paths, deterministic first
-  declaration order, duplicate/collision checks and copied member metadata,
-  including nested fields, comments, versions and offline start values.
-- Stable category ordering with rejection of read/write, write/read and
-  write/write hazards that would change the original network schedule.
-- Deterministic artifact dependency ordering with missing-dependency/cycle/name
-  diagnostics, independent of hard-coded Unit/Operation/Plant category order.
-
-For example, moving an Analog producer after a Digital consumer changes a
-same-scan read to a previous-scan read. Moving an Analog reader after a Digital
-writer changes a previous-scan read to a same-scan read. Both must reject
-category grouping unless dependencies are explicitly reconciled. Conflicting
-writes must also retain order. Independent networks can group stably.
-
-The planning primitives now feed a supported FB/A/O network adapter and body
-renderers described below. They do not yet cover the phase template's complete
-control flow, managed-source ownership protocol or live import lifecycle.
-Their tests do not establish complete backend parity. The runtime generator does
-not use them yet; the prompt remains operation-interlock-only.
-
-## Prepared control routing and read-only configuration inspection
-
-`ModularControlRouting.Prepare` can prepare the five Unit inputs/Plant global
-bindings, local Unit SFC HSS/reset, device RESET/PROT, Operation forwarding and
-multi-phase controller HSS/delayed reset on the in-memory XML model. It is not
-called by runtime generation yet: activation requires completed batch preflight
-and backend integration. RESET_CYCL and standalone Tp/Rp global resets retain
-their established semantics. No selector Reset behavior is invented.
-
-The G-016 reconciler now delegates to a parameterized Boolean-reference helper.
-Its compatibility entry point still uses global F_Safe.HSS. The preparation
-pass supplies local references and removes only a replaced operand with no
-remaining wire users, avoiding orphan hidden global references. Shared access
-nodes and other/manual users remain intact. No HMI/F_Safe DB member is created.
-
-`ConfigurationMigrationPlan.Inspect` derives exact base/monitor ownership from
-configured device calls. It takes an **original DB section snapshot**, not the
-mutable cfgData cache that existing constructors extend. This distinction keeps
-fresh generated declarations from being misidentified as legacy configuration.
-It copies existing member metadata/values, rejects source/type/member collisions
-and reports separate consumer-review, offline-backup and online-value protection
-preconditions. It does not modify the DB or apply/authorize a migration. Existing
-nested CFG requires explicit UDT/value reconciliation rather than rebuilding
-blindly; managed idempotent regeneration remains outstanding.
-
-## Supported network renderers and configuration artifacts
-
-`GeneratedNetworkModel` adapts the explicitly supported generator FB/A/O grammar
-into immutable expressions, scoped symbols, invocations and output assignments.
-It is not an arbitrary manual FBD decompiler. Call types must be registered by
-the owner. Unknown instructions/pins, dangling or duplicate drivers, unsupported
-access forms, cycles and wires outside the supported grammar reject with stable
-network identity and original title. FB outputs feed consumers in dependency
-order; fan-out and output negation do not execute the FB twice. Unconnected
-parameters remain unassigned; InOut requires an unnegated writable symbol.
-
-The FBD renderer retains the validated network snapshot. The readable SCL and
-`StructuredTextBodyRenderer` render the same model. Tokenized SCL follows the
-working repository StructuredText/v3 representation, allowing enclosing XML
-interface metadata, multilingual instance comments and instruction versions to
-be retained instead of flattening them into source declarations. Both SCL
-representations are compared by an independent fixture token reader. PLC import,
-EN-disabled output timing and independent stateful-call ordering still require
-Siemens validation; these fixtures alone are not a PLC equivalence proof.
-
-`GeneratedBlockBody` supplies Devices/category/original-title SCL nesting and
-FBD structural group headers without moving a device across a non-device scan
-boundary. The scheduling guard includes enclosing-instance versus member-field
-conflicts, in addition to exact read/write hazards. FBD headers remain separate
-from device descriptions on Static declarations.
-
-`ConfigurationArtifacts` serializes exact ordered configuration leaves into
-`udtCfg_<SafeUnit>` and expanded cfgData instance overrides, retaining nested
-metadata/start values and per-leaf remanence. Its immutable DB proposal retains
-all legacy/manual members and rejects an existing target member. Its prepared
-binding pass adds Unit Input CFG, connects the Plant to cfgData.<SafeUnit> and
-connects actual base/monitor CFG pins to local CFG.<instance>, without implicitly
-creating any DB member. Empty configurations emit neither UDT nor CFG member.
-Legacy application and managed nested reconciliation remain separate work.
-
-Expanded verification covers actual seven-family device networks, monitors and
-helpers in both staging modes/language options and v4/v5 reopened XML. It checks
-FBD snapshot preservation, SCL source/token parity, exact category order, typed
-CFG binding idempotence and absence of DB side effects. UDT and expanded DB
-member interfaces validate against the installed Siemens Interface/v5 XSD.
-New standalone command: `powershell -NoProfile -ExecutionPolicy Bypass -File
-Tests/Verify-GeneratedNetworkModel.ps1`.
-
-`Tests/Verify-ModularControlRouting.ps1` exercises this pass and configuration
-inspection on actual seven-family device Add fixtures plus bare Unit/Operation
-models, two phases, both staging/language options, v4/v5 and repeated reloads.
-It checks exact scopes, effective and orphan global references, cyclic resets,
-no invented selector reset, no global DB mutation, eleven configuration leaves
-(seven devices plus four monitors), copied metadata/start values and migration
-preconditions/collisions. Runtime activation and backend parity are not tested.
-
-## Remaining implementation gates
-
-1. Core library contract exports are now present and checked. Complete the
-   executable statement/dependency audit, including phase stateful helpers and
-   EN behavior, without guessing compiler instruction semantics.
-2. Extend the supported network model/renderers to complete phase control flow
-   and the finalized Add/constructor lifecycle. Complete independent semantic
-   parity fixtures. Do not infer
-   arbitrary manual code from old XML or mark converted bodies as owned.
-3. Integrate the prepared Unit/Operation/Plant routing and configuration inspection
-   into the finalized batch lifecycle; render the per-unit UDT/CFG interface.
-4. Specify and test managed-content ownership before enabling additive updates.
-5. Build read-only cfgData migration plans, including backups, current metadata,
-   external consumer inventory and online-value capture requirements. Unknown
-   consumers stop application. Do not delete old members or add dual writes.
-6. Enable the general selector only with complete backend scope and failure
-   gating. Verify supported FBD phase logic and retained stateful call order.
-
-## Validation and acceptance status at this checkpoint
-
-New command: `powershell -NoProfile -ExecutionPolicy Bypass -File Tests/Verify-ModularGenerationPlan.ps1`.
-It tests pure planning only, including independent golden control/configuration
-inventories and scheduling counterexamples. Run the five existing suites too.
-No generator execution or live project changes are part of this checkpoint.
-
-AC-1 through AC-8 are **not complete**. They require the runtime adapters,
-complete renderers, migration protections and semantic/backend parity described
-above. A passing C# build or planning test does not change that status.
-
-| Acceptance criterion | Checkpoint status | Evidence / remaining scope |
-| --- | --- | --- |
-| AC-1 General language scope | Not tested | General selector/renderers not implemented or activated |
-| AC-2 Equivalent interfaces/routing/CFG | Not tested | XML control preparation verified; CFG interfaces/backends not integrated |
-| AC-3 Device grouping/presentation | Not tested | Seven-family grouping and SCL/FBD presentation verified offline; runtime remains |
-| AC-4 Executable semantic/backend parity | Not tested | Supported FB/A/O adapter/renderers verified; complete phase/control-flow parity remains |
-| AC-5 Complete per-unit CFG generation | Not tested | Seven-family UDT/DB serialization, schema and typed bindings verified; runtime/reconciliation remain |
-| AC-6 Protected legacy migration | Not tested | Read-only inventory/precondition/collision checks pass; end-to-end reviewed migration remains |
-| AC-7 Empty/PID/prior-feature runtime behavior | Not tested | Prior suites pass; new modular runtime paths not activated |
-| AC-8 Complete builds/parity/live validation reporting | Not tested | V21 x64/AnyCPU and all seven offline suites pass; full backend parity absent, V20 APIs absent, live validation not run |
+Use an explicitly authorized disposable project copy for representative FBD/SCL
+imports, exact exported interfaces, native instruction semantics, EN-disabled
+output timing, staged IO, HSS/reset propagation and repeat generation with added
+devices/phases. Check instance DB start-value retention on interface growth,
+post-compile export fingerprint stability and manual-edit rejection. Exercise a
+backed-up legacy migration with known HMI/PLC/script references and separately
+protected online values. No production conversion or download is authorized by
+this implementation work. These are unverified runtime results, not missing
+source wiring or an unresolved library-export request.

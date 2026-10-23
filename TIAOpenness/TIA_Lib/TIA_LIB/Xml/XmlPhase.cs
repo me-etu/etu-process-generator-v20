@@ -45,7 +45,7 @@ namespace TIA_LIB.Xml
             bool p03_type, double p03_sp_max, double p03_sp_min, int p03_numb_points, string p03_unit, string p03_txt_list,
             bool p04_type, double p04_sp_max, double p04_sp_min, int p04_numb_points, string p04_unit, string p04_txt_list,
             bool p05_type, double p05_sp_max, double p05_sp_min, int p05_numb_points, string p05_unit, string p05_txt_list
-            ) : base(op.UserGroup, op.Name + "_" + name, op.Unit.Name + "_" + op.Name + "_" + name + ".xml", "Xml/EmptyPhase.xml", name, false, name)
+            ) : base(op.UserGroup, op.Name + "_" + name, op.Unit.Name + "_" + op.Name + "_" + name + ".xml", "Xml/EmptyPhase.xml", name, false, name, parentBlock: op)
         {
             Op = op;
             _CountP = countP;
@@ -143,7 +143,7 @@ namespace TIA_LIB.Xml
 
             var interlock = GetInterlock(Op.Name);
 
-            if (PlcProject.InterlockLanguage == OperationInterlockLanguage.Fbd)
+            if (Generation.ModularGenerationRuntime.Current != null || PlcProject.InterlockLanguage == OperationInterlockLanguage.Fbd)
             {
                 for (var i = 1; i <= 50; i++)
                 {

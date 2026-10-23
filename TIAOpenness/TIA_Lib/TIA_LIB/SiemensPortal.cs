@@ -103,6 +103,7 @@ namespace TIA_LIB
                         if (foundPlcSoftware != null)
                         {
                             PlcSoftware = foundPlcSoftware;
+                            GeneratorCpuIdentity = device.Name + "/" + foundPlcSoftware.Name;
                             Console.WriteLine(device.Name + " wurde als PLC erkannt");
                             Console.WriteLine(foundPlcSoftware.Name + " wurde als PLC Software gefunden");
                         }
@@ -603,6 +604,7 @@ namespace TIA_LIB
         public static SiemensPortal Current = null;
         public HmiSoftware HmiSoftware = null;
         public PlcSoftware PlcSoftware = null;
+        internal string GeneratorCpuIdentity;
         public Device PcStation = null;
         public TiaPortal Portal = null;
         public Project OpenProject = null;

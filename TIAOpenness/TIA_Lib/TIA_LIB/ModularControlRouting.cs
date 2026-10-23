@@ -9,6 +9,17 @@ namespace TIA_LIB.Generation
     // Prepared offline; activation belongs to G-017's finalized plan/preflight pass.
     internal static class ModularControlRouting
     {
+        internal static void RequireInput(XmlBlock block, string name, string datatype)
+        {
+            var sections = block.Xml.Element("SW.Blocks.FB")?.Element("AttributeList")?.Element("Interface")?.Elements().FirstOrDefault(e => e.Name.LocalName == "Sections");
+            if (sections == null) throw new InvalidOperationException("Missing interface for " + block.Name + ".");
+            var existing = sections.Elements().SelectMany(s => s.Elements()).Where(m => m.Name.LocalName == "Member" &&
+                string.Equals((string)m.Attribute("Name"), name, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (existing.Length > 1 || existing.Any(m => (string)m.Parent.Attribute("Name") != "Input" ||
+                (string)m.Attribute("Name") != name || ((string)m.Attribute("Datatype"))?.Trim('"') != datatype.Trim('"')))
+                throw new InvalidOperationException("Interface collision for " + block.Name + "." + name + "; expected Input " + datatype + ". Preserve and reconcile the existing declaration.");
+            block.GetInterfaceMember("Input", name, datatype);
+        }
         static XmlCall Require(XmlBlock block, string title, string instance, string type, string scope)
         {
             var network = block.FindNetwork(title);
@@ -39,10 +50,12 @@ namespace TIA_LIB.Generation
             {
                 var plantNetwork = plant.FindNetwork(unit.Name) ?? plant.FindUnitCallNetwork(unit.Name);
                 if (plantNetwork == null) throw new InvalidOperationException("Missing Plant call for unit " + unit.Name + ".");
+                if (plant.Networks.Values.SelectMany(n => n.Calls.Values).Count(c => c.BlockName == "fb" + unit.Name && c.InstName == unit.Name) != 1)
+                    throw new InvalidOperationException("Ambiguous Plant invocation count for Unit " + unit.Name + ". Preserve and reconcile duplicate/manual callers explicitly.");
                 var unitCall = Require(plant, plantNetwork.Name, unit.Name, "fb" + unit.Name, "GlobalVariable");
                 foreach (var binding in ModularControlContract.PlantToUnit())
                 {
-                    unit.GetInterfaceMember("Input", binding.Input, "Bool");
+                    RequireInput(unit, binding.Input, "Bool");
                     Bind(unitCall, binding.Input, string.Join("|", binding.Source.Components), true);
                 }
                 var selector = Require(unit, "Unit sfc control", "sfc_" + unit.Name, "fbControlSfc", "LocalVariable");
@@ -60,7 +73,7 @@ namespace TIA_LIB.Generation
                     var opCall = Require(unit, operation.Name, operation.Name, operation.Name, "LocalVariable");
                     foreach (var binding in ModularControlContract.UnitToOperation())
                     {
-                        operation.GetInterfaceMember("Input", binding.Input, "Bool");
+                        RequireInput(operation, binding.Input, "Bool");
                         Bind(opCall, binding.Input, string.Join("|", binding.Source.Components));
                     }
                     Bind(Require(operation, operation.Name, "sfc_" + operation.Name, "fbControlSfc", "LocalVariable"), "HSS", "HSS");

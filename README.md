@@ -2,7 +2,7 @@
 
 TIA Portal generator project for creating PLC function blocks, PLC tags, and Unified HMI-related objects from a declarative C# project definition.
 
-G-017 is in development: [implementation audit and planning checkpoint](Docs/G-017-implementation-audit.md). Its pure planning primitives are not connected to runtime generation yet; the existing operation-interlock-only language selector remains in effect.
+G-017 is connected to generation in both apps. See the [implementation and validation audit](Docs/G-017-implementation-audit.md) for contracts, migration safeguards and offline results. V21 builds and offline checks pass; live PLC import, runtime equivalence and legacy migration still need a disposable-project trial.
 
 ## Purpose
 
@@ -19,7 +19,7 @@ Each version has its own declarative `Project.cs`: `etu-process-generator-TiAv20
 - `AddRp(...)`
 
 
-Both initially select unit `BV260-B210`; other unit definitions remain inside `#if false`. SiVArc generation remains commented out. Future plant-definition edits must target the intended app version.
+The active units are defined independently in each version's `Project.cs`; inspect the selected version before generating. SiVArc generation remains commented out.
 
 ## Important Runtime Dependency
 
@@ -39,50 +39,43 @@ Do not hand-link `TIA_LIB.dll` from `etu-process-generator-TiAv20\bin\x64\Debug`
 
 ## Current Generation Flow
 
-At startup, the console asks for signal staging mode. Pressing Enter keeps the default marker-memory behavior. Selecting generated DB/UDT staging prepares `hwIN_<SafeUnitName>`, `hwOUT_<SafeUnitName>`, and `dbIO` artifacts, adds `hwIN`/`hwOUT` unit FB interfaces, and wires Plant unit calls to `dbIO.<SafeUnitName>.IN/OUT`.
+Both apps first ask `Select language for code generation:`. Enter selects FBD; `2` selects SCL. The independent hardware staging prompt follows. Set `PlcProject.Language` (`TIA_LIB.Generation.GenerationLanguage`) before constructing `Project` when calling programmatically. The old `InterlockLanguage` API is a compatibility alias for the general choice; conflicting explicit choices are rejected. Language and migration approval are frozen at construction.
 
-`AddPidControl` creates/reuses the `fbPIDCtrl` call and its Static instance description, retaining configuration and HMI/reset/alarm integration, but contributes no hardware IO. Unit staging interfaces/bindings are prepared only for units with registered hardware signals, so a fresh PID-only unit needs no hardware staging types or dbIO member. Existing obsolete PID staging artifacts and manual content are preserved; automatic cleanup/migration is separate work.
+The selected language covers generated Unit, Operation, phase, interlock and standalone Tp/Rp bodies. Plant stays FBD and retains unrelated/manual networks. Vendor/library definitions are dependencies, not rewritten. FBD phases contain real instruction networks; there is no SCL fallback. The supplied fresh phase template is audited; changed/manual phase logic requires explicit reconciliation.
 
-All generator-managed `fbControlSfc` calls now connect `HSS` directly to global `"F_Safe".HSS`, without inversion: unit controllers, operation selectors and phase controllers (the latter reside in the operation FB). Before generating, install the updated PLC library with Input `HSS : Bool` on `fbControlSfc` and ensure `F_Safe.HSS : Bool` exists. The generator references this member without creating a fallback or replacing the library. Existing simple HSS connections are reconciled only at that endpoint; ambiguous drivers/topology stop with context. Run `Tests/Verify-SfcHss.ps1` after building for offline regression coverage; live import/compile and the updated FB's semantics are not verified by those tests.
-Before that choice, both apps independently ask for the language of **operation interlock FBs only**: `1. FBD` (Enter/default) or `2. SCL`. Phase, operation, unit and device block languages are unaffected. Programmatic callers may set `PlcProject.InterlockLanguage = OperationInterlockLanguage.Scl` before constructing `Project`; changing language after model construction begins is rejected.
-`Project.cs` performs these side-effecting steps:
+Every Unit receives five Input Bool parameters, in both languages and staging modes:
 
-```csharp
-CreateTags();
-Upload();
-Portal.CheckTags();
-// GenerateSiVarc(); // currently disabled
-Portal.DeleteRenamedTags();
-UserInterface();
-Portal.Portal.Dispose();
-```
+| Unit input | Plant operand |
+| --- | --- |
+| iReset | HMI.RESET |
+| iReset_Delayed | HMI.RESET_DELAYED |
+| iMode_Off | HMI.MODE_OFF |
+| iMode_Service | HMI.MODE_SERV |
+| iHSS | F_Safe.HSS |
 
-This connects to an open or newly started TIA Portal instance and modifies the open TIA project.
+Unit controllers use local iReset/iHSS. Devices use iReset and applicable PROT uses iHSS. Operations receive HSS/Delayed_Reset from the Unit; selectors use HSS, and their phase controllers use HSS/Delayed_Reset. The selector's previously unassigned Reset stays unassigned. The checked fbUnit/fbControlSfc definitions have no mode inputs, so no vendor mode pins are invented. These existing global Bool members and the updated library must be present; no HMI/F_Safe fallback DB is created. Standalone fbTPs/fbRPs retain HMI.RESET by user decision, with their external callers unchanged. Monitor RESET_CYCL remains separate.
 
-### Operation interlocks in SCL (G-014)
+Configuration is grouped under `cfgData.<SafeUnit>` of type `udtCfg_<SafeUnit>`, supplied to Unit Input CFG. Calls use local `CFG.<exact-instance-name>`, retaining punctuation and every configured monitor leaf. All seven target device CFG contracts were verified as Input. Offline values, metadata and manual fields are retained additively. A fresh empty Unit has controls but no CFG/UDT; a PID-only Unit has controls/PID CFG but no hardware IO.
 
-`AddPH("BV130_B10_20", "OP5_Pressure", "PH_Vent")` and `AddPH(..., "PH_Fill")` generate one `OP5_Pressure_Interlocks` FB in the existing operation folder. The upload-time descriptor collects distinct phases in first declaration order. It renders an optimized version-0.1 FB with Static `State : Program_Alarm` version 1.0, 50 general Bool preconditions and 50 per phase (`01..50`). `AddOP` alone creates no interlock. The operation's `Interlocks` network, local multi-instance `Interlocks`, called block name and EN wiring retain their existing contract.
+Device logic groups as Digital_Sensors, Analog_Sensors, Digital_Valves, Analog_Valves, Motors_Direct, Motors_Control and PID_Controllers. SCL nests original network titles inside Devices/category regions. FBD retains titles and uses structural group comments. Monitor/interlock helpers stay with their device, and descriptions remain on Static instances. A schedule that would reverse a read/write dependency is rejected.
 
-The SCL starter has an empty Function region followed by General Interlocks and one region per phase. **Every FALSE assignment executes cyclically.** Calculations added in Function can be overwritten by later FALSE assignments; adjust those defaults when implementing interlocks. These lines are starter logic, not initialization values or process-specific logic.
+Marker-memory staging remains the default. Generated DB/UDT staging prepares `hwIN_<SafeUnit>`, `hwOUT_<SafeUnit>` and `dbIO` only for actual hardware inventory. `AddPidControl` contributes no hardware IO.
 
-Before upload, preflight checks the complete batch for duplicate CPU-global names, generated-block conflicts, existing blocks in other folders, language/type mismatches and incompatible SCL interfaces. Compatible SCL blocks are reused without importing source or changing their body, comments or extra members. Missing requested phase members cause an actionable error: this release performs no conversion, additive merge, replacement, movement or deletion. Reconcile such blocks explicitly. Existing FBD interfaces retain the previous additive generation path; name/folder/language conflicts now stop before upload.
+`CreateTags()` prepares the finalized model, validates library pins/names/dependencies, and exports backups before marker-table changes. `Upload()` rechecks artifacts and dependency snapshots, then imports/compiles prerequisites before callers. Failure stops subsequent imports and retains diagnostics. SCL uses tokenized StructuredText in SimaticML, preserving enclosing interface metadata; the older G-014 external-source backend remains compatibility code.
 
-The backend creates one uniquely named Siemens external source for each new SCL FB and uses `GenerateBlocksFromSource(targetGroup, GenerateBlockOption.KeepOnError)`, then compiles the resulting block and reports nested diagnostics and warnings. It checks folder placement and the exported required interface, including Program_Alarm version/public access and State visibility/access/SetPoint flags. It does not hard-code Program_Alarm internals. Failed sources and `OperationInterlockSources/<run-id>/<block>.scl` plus `diagnostics.txt` remain for investigation; callers are not imported after a generation failure. Only the source created by that successful generation is removed from Portal. Retained files are not automatically deleted. Each interlock generates at most once per prepared batch despite the legacy repeated upload enumeration.
+### Regeneration and migration
 
-Backend evidence: installed V21 `Help/en-US/TIAPortalOpennessenUS.zip` topics `37231359755/131792485771.htm` (target group overload), `119205656075.htm` (KeepOnError and explicit compilation), and `53581488011.htm` (generation overwrites existing blocks). The installed `PublicAPI/V21/net48/Siemens.Engineering.Step7.dll` metadata confirms the signatures, result types and source deletion API. Existing-block preflight is therefore mandatory. The renderer is compiled into both library projects; no runtime template asset or redirected-drive access is required. SCL identifiers accept ASCII letters, digits, underscores and hyphens, up to 128 characters including generated suffixes, starting with a letter or underscore. Hyphenated phase names retain their identity: `"PH_Re-Inert_PRECOND_01" : Bool;` is referenced as `#"PH_Re-Inert_PRECOND_01" := FALSE;`. Simple identifiers keep their existing spelling. Quotes, control characters, non-ASCII names and other unsupported inputs fail with their AddPH identity before import.
+Keep the generated `GeneratedModels` directory beside the output used to run the app. It contains private backups, plans, diagnostics and ownership records scoped to saved project path/PLC identity. It is ignored by Git. Run from the same output directory for subsequent generation, and keep the same language/staging mode. Ownership records are written only after successful import, compilation and export.
 
-Offline validation:
+Matching managed blocks can be regenerated and extended. Changed/manual bodies, missing ownership, a language/staging change, wrong folders and incompatible contracts stop for reconciliation. Existing pre-G-017 FBs are not silently adopted or converted. These protections also apply to generated starter interlocks: process edits require explicit reconciliation. Both FBD and SCL interlock starters now assign FALSE cyclically to all general/per-phase preconditions; these are starter logic, not initialization values.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File Tests/Verify-OperationInterlocks.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File Tests/Verify-V21StagingXml.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File Tests/Verify-DeviceStagingInputs.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File Tests/Verify-DeviceInstanceComments.ps1
-# Repeat against AnyCPU output with:
-# -LibraryPath ./etu-process-generator-TiAv21/bin/Debug/TIA_LIB.dll
-```
+Legacy flat configuration requires review of `configuration-plan.xml` and `configuration-approval.template.xml` in the retained run directory. After verifying backups, all external consumers and separate online-value protection, supply the completed approval with `--configuration-migration-approval <reviewed-approval.xml>`. It must match the exact project/CPU, original cfgData snapshot and every old/new/type mapping; the default template cannot authorize a migration. Unknown consumers stop it. Old flat members remain, and their values can diverge from nested configuration; no automatic dual-write synchronization is added. This approval does not waive FB ownership/manual-content guards.
 
-On 2026-10-21 V21 Debug x64 and AnyCPU builds and both offline scripts passed. The fixtures compare complete SCL snapshots, cover both staging modes, cached repeated AddPH, preservation, preflight failures and repeated uploads, and exercise the existing FBD call builder without Portal constructors. V20 compilation was attempted but its standard Siemens API installation is absent; V20 API compatibility remains unverified. `Tests/Verify-DeviceInstanceComments.ps1` was initially absent because the G-012/G-013 dependency was missing from this branch; that implementation and its regression suite have now been restored. No generator or live Siemens source compilation was executed. Disposable-project generation, exact compiled interface/access parity, EN/ENO caller compilation, placement and edited-body reruns still require explicitly authorized live verification.
+No online actual values are captured and no PLC download is performed by this migration. First validate generation and repeat generation in a disposable project copy; the generator still modifies the open TIA project, creates tags and HMI objects, and retains the existing post-upload Project.cs flow.
+
+### Offline verification
+
+Build the V21 app in Debug x64 and AnyCPU, then run all `Tests/Verify-*.ps1` suites listed in the [audit](Docs/G-017-implementation-audit.md). Scripts default to the x64 DLL; repeat with `-LibraryPath ./etu-process-generator-TiAv21/bin/Debug/TIA_LIB.dll` for AnyCPU. These tests bypass live Portal constructors. They verify model/rendering/schema/routing/preservation behavior, not PLC execution.
 
 ## Recent Generator Behavior Notes
 
@@ -107,7 +100,7 @@ Run `./Tests/Verify-DeviceInstanceComments.ps1` after building V21 for offline d
 
 ## Build Notes
 
-Use an up-to-date `main` as the baseline for new work. After fetching authorized remote updates, check `git status --short --branch` and `git log HEAD..origin/main --oneline` before creating a task branch. The consolidated generator includes the device instance-comment, V21 template, SCL interlock and staged-input fixes together. Validate all four offline suites listed above after changes to the shared library. `Specs/` and `SKILLS.md` remain ignored local handoff/session files; runtime templates and regression fixtures are tracked.
+Use an up-to-date `main` as the baseline for new work. After fetching authorized remote updates, check `git status --short --branch` and `git log HEAD..origin/main --oneline` before creating a task branch. The consolidated generator includes the device instance-comment, V21 template, SCL interlock and staged-input fixes together. Run the ten offline suites in the G-017 audit after changes to the shared library. `Specs/` and `SKILLS.md` remain ignored local handoff/session files; runtime templates and regression fixtures are tracked.
 
 Preferred workflow is Visual Studio with `Debug|x64`.
 

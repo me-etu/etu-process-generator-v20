@@ -14,6 +14,7 @@ using Siemens.Engineering.Hmi.Communication;
 using System.Collections.Specialized;
 using System.Runtime.CompilerServices;
 using TIA_LIB.SignalStaging;
+using TIA_LIB.Generation;
 
 namespace TIA_LIB
 {
@@ -21,10 +22,11 @@ namespace TIA_LIB
     {
         public PlcProject()
         {
-            InterlockConfiguration.Freeze();
+            CodeGenerationConfiguration.Freeze();
  
             Portal = new SiemensPortal();
             Portal.CompilePlc();
+            new ModularGenerationRuntime(this);
             Plant = new XmlPlant();
         }
 
@@ -363,14 +365,26 @@ namespace TIA_LIB
         public List<string> Messages = new List<string>();
         public SignalStagingInventory StagingInventory = new SignalStagingInventory();
         public static SignalStagingMode StagingMode = SignalStagingMode.MarkerMemory;
-        private static readonly OperationInterlockConfiguration InterlockConfiguration = new OperationInterlockConfiguration();
+        private static readonly GenerationConfiguration CodeGenerationConfiguration = new GenerationConfiguration();
+        public static GenerationLanguage Language
+        {
+            get { return CodeGenerationConfiguration.Language; }
+            set { CodeGenerationConfiguration.Language = value; }
+        }
+        public static string ConfigurationMigrationApprovalPath
+        {
+            get { return CodeGenerationConfiguration.MigrationApprovalPath; }
+            set { CodeGenerationConfiguration.MigrationApprovalPath = value; }
+        }
+        // Compatibility adapter: selecting the old property selects the general backend.
         public static OperationInterlockLanguage InterlockLanguage
         {
-            get { return InterlockConfiguration.Language; }
-            set { InterlockConfiguration.Language = value; }
+            get { return CodeGenerationConfiguration.CompatibilityInterlockLanguage; }
+            set { CodeGenerationConfiguration.CompatibilityInterlockLanguage = value; }
         }
         public static void Upload()
         {
+            if (ModularGenerationRuntime.Current != null) { ModularGenerationRuntime.Current.Upload(); return; }
             // Complete inventory and preflight before importing any artifacts or callers.
             var operationInterlocks = XmlBlock.Blocks.OfType<XmlInterlock>().ToList();
             XmlInterlock.PrepareAll(operationInterlocks);
@@ -642,8 +656,11 @@ namespace TIA_LIB
             if (StagingMode == SignalStagingMode.GeneratedDbUdt)
             {
                 CreateGeneratedDbUdtStaging();
+                if (ModularGenerationRuntime.Current != null) ModularGenerationRuntime.Current.Prepare();
                 return;
             }
+
+            if (ModularGenerationRuntime.Current != null) ModularGenerationRuntime.Current.Prepare();
 
             Console.WriteLine("Signal staging mode: Marker memory");
             var plc = SiemensPortal.Current.GetPlcSoftware();   //Aktuelle Instance aufrufen

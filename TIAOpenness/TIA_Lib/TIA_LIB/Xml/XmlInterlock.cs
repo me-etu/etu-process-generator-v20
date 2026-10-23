@@ -11,8 +11,8 @@ namespace TIA_LIB.Xml
     public class XmlInterlock : XmlBlock
     {
         public XmlInterlock(XmlPhase ph): base(ph.Op.Unit.UserGroup, ph.Op.Name + "_Interlocks", ExportFileName(ph), "Xml/EmptyBlock.xml", "Interlocks", false, ph.Op.Name,
-            preserveOnly: PlcProject.InterlockLanguage == OperationInterlockLanguage.Scl,
-            expectedLanguage: PlcProject.InterlockLanguage == OperationInterlockLanguage.Scl ? "SCL" : "FBD")
+            preserveOnly: Generation.ModularGenerationRuntime.Current == null && PlcProject.InterlockLanguage == OperationInterlockLanguage.Scl,
+            expectedLanguage: Generation.ModularGenerationRuntime.Current != null ? null : PlcProject.InterlockLanguage == OperationInterlockLanguage.Scl ? "SCL" : "FBD", parentBlock: ph.Op.Unit)
         {
             Operation = ph.Op;
         }
@@ -20,6 +20,10 @@ namespace TIA_LIB.Xml
         private readonly XmlOperation Operation;
         private OperationInterlockDescriptor descriptor;
         private OperationInterlockBatch batch;
+        internal OperationInterlockDescriptor FinalizedDescriptor()
+        {
+            return new OperationInterlockDescriptor(Operation.Unit.Name, Operation.Name, Operation.PhaseOrder);
+        }
 
         private static string ExportFileName(XmlPhase ph)
         {

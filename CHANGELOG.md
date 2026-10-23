@@ -2,6 +2,21 @@
 
 All notable project and generator changes should be recorded here.
 
+## 2026-10-23
+
+### Added
+
+- G-017 runtime integration in both apps: general frozen FBD/SCL selection, Unit control/configuration interfaces, Operation forwarding, seven device groups, supported body renderers and real FBD phase instructions. Plant remains FBD; vendor definitions remain external. Supersedes the preparation-only checkpoints below.
+- Per-unit configuration UDTs and nested cfgData fields retain offline values, metadata and manual fields additively. Exact reviewed legacy-migration approval is required; old flat fields remain. No online-value capture, automatic external-consumer rewrites or download is added.
+- Whole-block ownership records enable protected managed regeneration. Missing records, manual edits, language/staging changes and incompatible folders/contracts stop before replacement. Standalone Tp/Rp retain global HMI.RESET by user decision. Both language interlock starters now use cyclic FALSE assignments.
+- Finalized batch preflight, private backups/plans/diagnostics, dependency rechecks and import/compile gates stop later callers after failure. GeneratedModels is ignored to keep private project exports out of Git. SCL uses tokenized XML bodies to preserve existing interface metadata.
+- Offline phase oracle/FBD interpreter, ownership, migration approval, integrated rendering and actual dependency-scanner fixtures. V21 Debug x64/AnyCPU builds and ten offline suites pass; V20 APIs and live PLC import/runtime/migration validation remain unavailable/untested.
+
+### Fixed
+
+- Managed constructor reentry retains local CFG operands instead of rewriting them to legacy globals. Fresh/reopened operand updates keep scope, wire identity, negation and output fanout; fresh open-pin indexes and legacy unqualified constant/global setters now remain consistent on repeated declarations.
+- Shared grouping checks include enclosing-instance/field hazards and independent intervening networks. Conditional phase writes preserve no-write behavior through set/reset coils; template-body edits are rejected before rendering. User Project.cs definitions are preserved separately.
+
 ## 2026-10-22
 
 ### Added

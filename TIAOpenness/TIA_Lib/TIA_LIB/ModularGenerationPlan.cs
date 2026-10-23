@@ -151,7 +151,17 @@ namespace TIA_LIB.Generation
             if (original.Select(n => n.Identity).Distinct(StringComparer.Ordinal).Count() != original.Length)
                 throw new InvalidOperationException("Repeated stable network identity.");
             var grouped = original.OrderBy(n => n.Category).ToArray(); // Stable within category.
-            var positions = grouped.Select((n, i) => new { n.Identity, Index = i }).ToDictionary(n => n.Identity, n => n.Index);
+            ValidateOrder(original, grouped.Select(n => n.Identity));
+            return Array.AsReadOnly(grouped);
+        }
+        public static void ValidateOrder(IEnumerable<ScheduledNetwork> networks, IEnumerable<string> proposedIdentities)
+        {
+            var original = networks.ToArray();
+            var order = proposedIdentities.ToArray();
+            if (original.Select(n => n.Identity).Distinct().Count() != original.Length || order.Distinct().Count() != order.Length ||
+                !new HashSet<string>(original.Select(n => n.Identity)).SetEquals(order))
+                throw new InvalidOperationException("Device schedule is not a complete identity-preserving permutation.");
+            var positions = order.Select((id, i) => new { Identity = id, Index = i }).ToDictionary(n => n.Identity, n => n.Index);
             for (int first = 0; first < original.Length; first++)
             for (int second = first + 1; second < original.Length; second++)
             {
@@ -162,7 +172,6 @@ namespace TIA_LIB.Generation
                     throw new InvalidOperationException("Device grouping changes scan dependencies: '" + a.Title + "' (" + a.Identity +
                         ") must remain before '" + b.Title + "' (" + b.Identity + "). Reconcile the schedule explicitly.");
             }
-            return Array.AsReadOnly(grouped);
         }
 
         static bool Overlap(IEnumerable<string> first, IEnumerable<string> second)

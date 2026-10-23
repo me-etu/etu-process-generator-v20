@@ -10,7 +10,7 @@ namespace TIA_LIB.Generation
 {
     public enum GeneratedPinDirection { Input, Output, InOut }
 
-    public enum GeneratedExpressionKind { Symbol, Literal, And, Or, Not }
+    public enum GeneratedExpressionKind { Symbol, Literal, And, Or, Not, Equal, NotEqual, Bit }
 
     public sealed class GeneratedExpression
     {
@@ -18,12 +18,24 @@ namespace TIA_LIB.Generation
         public SymbolReference Symbol { get; }
         public string Datatype { get; }
         public string Literal { get; }
+        public int BitIndex { get; }
         public ReadOnlyCollection<GeneratedExpression> Operands { get; }
-        GeneratedExpression(GeneratedExpressionKind kind, SymbolReference symbol, string datatype, string literal, IEnumerable<GeneratedExpression> operands)
-        { Kind = kind; Symbol = symbol; Datatype = datatype; Literal = literal; Operands = operands.ToList().AsReadOnly(); }
-        internal static GeneratedExpression Reference(SymbolReference symbol) { return new GeneratedExpression(GeneratedExpressionKind.Symbol, symbol, null, null, new GeneratedExpression[0]); }
+        GeneratedExpression(GeneratedExpressionKind kind, SymbolReference symbol, string datatype, string literal, IEnumerable<GeneratedExpression> operands, int bitIndex = 0)
+        { Kind = kind; Symbol = symbol; Datatype = datatype; Literal = literal; Operands = operands.ToList().AsReadOnly(); BitIndex = bitIndex; }
+        internal static GeneratedExpression Reference(SymbolReference symbol, string datatype = null) { return new GeneratedExpression(GeneratedExpressionKind.Symbol, symbol, datatype, null, new GeneratedExpression[0]); }
         internal static GeneratedExpression Constant(string type, string value) { return new GeneratedExpression(GeneratedExpressionKind.Literal, null, type, value, new GeneratedExpression[0]); }
-        internal static GeneratedExpression Boolean(GeneratedExpressionKind kind, params GeneratedExpression[] operands) { return new GeneratedExpression(kind, null, "Bool", null, operands); }
+        internal static GeneratedExpression Boolean(GeneratedExpressionKind kind, params GeneratedExpression[] operands)
+        {
+            if (kind == GeneratedExpressionKind.Not && operands.Length == 1 && operands[0].Kind == GeneratedExpressionKind.Not) return operands[0].Operands[0];
+            return new GeneratedExpression(kind, null, "Bool", null, operands);
+        }
+        internal static GeneratedExpression Compare(bool equal, string type, GeneratedExpression first, GeneratedExpression second)
+        { return new GeneratedExpression(equal ? GeneratedExpressionKind.Equal : GeneratedExpressionKind.NotEqual, null, type, null, new[] { first, second }); }
+        internal static GeneratedExpression Bit(SymbolReference symbol, int bit)
+        {
+            if (bit < 0 || bit > 31) throw new ArgumentOutOfRangeException(nameof(bit));
+            return new GeneratedExpression(GeneratedExpressionKind.Bit, symbol, "Bool", null, new GeneratedExpression[0], bit);
+        }
         public string RenderScl()
         {
             switch (Kind)
@@ -33,6 +45,9 @@ namespace TIA_LIB.Generation
                 case GeneratedExpressionKind.Not: return "NOT (" + Operands[0].RenderScl() + ")";
                 case GeneratedExpressionKind.And: return "(" + string.Join(" AND ", Operands.Select(e => e.RenderScl())) + ")";
                 case GeneratedExpressionKind.Or: return "(" + string.Join(" OR ", Operands.Select(e => e.RenderScl())) + ")";
+                case GeneratedExpressionKind.Equal:
+                case GeneratedExpressionKind.NotEqual: return "(" + Operands[0].RenderScl() + (Kind == GeneratedExpressionKind.Equal ? " = " : " <> ") + Operands[1].RenderScl() + ")";
+                case GeneratedExpressionKind.Bit: return SiemensSource.Reference(Symbol) + ".%X" + BitIndex;
                 default: throw new InvalidOperationException("Unsupported expression kind.");
             }
         }

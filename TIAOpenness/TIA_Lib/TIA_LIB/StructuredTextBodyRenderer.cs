@@ -35,10 +35,19 @@ namespace TIA_LIB.Generation
             switch (expression.Kind)
             {
                 case GeneratedExpressionKind.Symbol: return new[] { Symbol(expression.Symbol) };
+                case GeneratedExpressionKind.Bit:
+                    var bitAccess = Symbol(expression.Symbol);
+                    bitAccess.Element(Namespace + "Symbol").Add(Token("."), Token("%X" + expression.BitIndex));
+                    return new[] { bitAccess };
                 case GeneratedExpressionKind.Literal:
                     return new[] { Node("Access", new XAttribute("Scope", "LiteralConstant"), Node("Constant", Node("ConstantValue", expression.Literal))) };
                 case GeneratedExpressionKind.Not:
                     return new[] { Token("NOT"), Blank(), Token("(") }.Concat(Expression(expression.Operands[0])).Concat(new[] { Token(")") });
+                case GeneratedExpressionKind.Equal:
+                case GeneratedExpressionKind.NotEqual:
+                    return new[] { Token("(") }.Concat(Expression(expression.Operands[0]))
+                        .Concat(new[] { Blank(), Token(expression.Kind == GeneratedExpressionKind.Equal ? "=" : "<>"), Blank() })
+                        .Concat(Expression(expression.Operands[1])).Concat(new[] { Token(")") });
                 case GeneratedExpressionKind.And:
                 case GeneratedExpressionKind.Or:
                     var tokens = new List<XElement> { Token("(") };
@@ -54,12 +63,12 @@ namespace TIA_LIB.Generation
         void Region(XElement destination, string title)
         { destination.Add(Token("REGION"), Blank(), Node("Text", SiemensSource.RegionTitle(title)), Line()); }
         void EndRegion(XElement destination) { destination.Add(Token("END_REGION"), Line()); }
-        void Invocation(XElement destination, GeneratedInvocation invocation)
+        void Invocation(XElement destination, GeneratedInvocation invocation, bool instruction = false)
         {
             bool conditional = invocation.Enable.Kind != GeneratedExpressionKind.Literal || invocation.Enable.Literal != "TRUE";
             if (conditional) destination.Add(Token("IF"), Blank(), Expression(invocation.Enable), Blank(), Token("THEN"), Line());
-            var call = Node("CallInfo", new XAttribute("BlockType", "FB"), new XAttribute("Name", invocation.BlockType));
-            call.Add(Node("Instance", new XAttribute("Scope", invocation.Instance.IsGlobal ? "GlobalVariable" : "LocalVariable"),
+            var call = instruction ? Node("Instruction") : Node("CallInfo", new XAttribute("BlockType", "FB"), new XAttribute("Name", invocation.BlockType));
+            if (!instruction) call.Add(Node("Instance", new XAttribute("Scope", invocation.Instance.IsGlobal ? "GlobalVariable" : "LocalVariable"),
                 invocation.Instance.Components.Select(c => Node("Component", new XAttribute("Name", c)))));
             call.Add(Token("("));
             bool first = true;
@@ -71,6 +80,7 @@ namespace TIA_LIB.Generation
                     Token(argument.Direction == GeneratedPinDirection.Output ? "=>" : ":="), Blank(), Expression(argument.Expression)));
             }
             call.Add(Token(")"));
+            if (instruction) destination.Add(Symbol(invocation.Instance));
             destination.Add(Node("Access", new XAttribute("Scope", "Call"), call), Token(";"), Line());
             if (conditional) destination.Add(Token("END_IF"), Token(";"), Line());
             foreach (var assignment in invocation.FollowingAssignments)
@@ -103,6 +113,27 @@ namespace TIA_LIB.Generation
             foreach (var element in result.Descendants())
                 if (element.Attribute("UId") != null) element.SetAttributeValue("UId", ++id);
             return result;
+        }
+        public XElement Render(GeneratedStructuredBody model)
+        {
+            var result = new XElement(Namespace + "StructuredText");
+            foreach (var region in model.Regions) GeneratedRegion(result, region);
+            int id = 20;
+            foreach (var element in result.Descendants()) if (element.Attribute("UId") != null) element.SetAttributeValue("UId", ++id);
+            return result;
+        }
+        void GeneratedRegion(XElement destination, GeneratedRegion region)
+        {
+            Region(destination, region.Title);
+            foreach (var statement in region.Statements)
+            {
+                if (statement.Assignment == null) { Invocation(destination, statement.Call, statement.Instruction); continue; }
+                if (statement.Condition != null) destination.Add(Token("IF"), Blank(), Expression(statement.Condition), Blank(), Token("THEN"), Line());
+                destination.Add(Expression(statement.Assignment.Destination), Blank(), Token(":="), Blank(), Expression(statement.Assignment.Value), Token(";"), Line());
+                if (statement.Condition != null) destination.Add(Token("END_IF"), Token(";"), Line());
+            }
+            foreach (var child in region.Children) GeneratedRegion(destination, child);
+            EndRegion(destination);
         }
     }
 }

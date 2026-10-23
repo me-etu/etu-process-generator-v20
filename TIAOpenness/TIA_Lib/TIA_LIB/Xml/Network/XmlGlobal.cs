@@ -36,7 +36,8 @@ namespace TIA_LIB.Xml.Network
             Value2 = Components.Count > 1 ? Components[1] : null;
             Value = string.Join("|", Components);
 
-            if(isGlobal && Components.Count == 2 && (isInstanceDB || !Components[0].StartsWith("TP")))
+            if(isGlobal && Components.Count == 2 && (isInstanceDB || !Components[0].StartsWith("TP")) &&
+                !(Generation.ModularGenerationRuntime.Current != null && (Components[0] == "HMI" || Components[0] == "F_Safe")))
             {
                 SiemensPortal.Current.GetValueFromGlobalDB(Components[0], Components[1], datatype);
             }
@@ -66,7 +67,7 @@ namespace TIA_LIB.Xml.Network
 
             Components = components;
 
-            var symbol = Xml.Descendants(_Namespace + "Symbol").FirstOrDefault();
+            var symbol = Xml.Descendants(_Namespace + "Symbol").FirstOrDefault() ?? Xml.Elements("Symbol").SingleOrDefault();
             if (symbol == null)
             {
                 symbol = new XElement(Network.ElementName("Symbol"));

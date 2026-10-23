@@ -12,7 +12,7 @@ namespace TIA_LIB.Xml
 {
     public class XmlBlock
     {
-        public XmlBlock(PlcBlockUserGroup parent_user_group, string name, string file_name, string template, string instName, bool instGlobal = false, string user_gorup_name = "", bool overwrite = false, bool preserveOnly = false, string expectedLanguage = null)
+        public XmlBlock(PlcBlockUserGroup parent_user_group, string name, string file_name, string template, string instName, bool instGlobal = false, string user_gorup_name = "", bool overwrite = false, bool preserveOnly = false, string expectedLanguage = null, XmlBlock parentBlock = null)
         {          
             _Name = name;
 
@@ -33,7 +33,12 @@ namespace TIA_LIB.Xml
             }
             Blocks.Add(this);
 
-            if(parent_user_group != null)
+            if (Generation.ModularGenerationRuntime.Current != null)
+            {
+                TargetGroupPath = (parentBlock?.TargetGroupPath ?? Generation.ModularGenerationRuntime.ParentPath(parent_user_group)).Concat(new[] { user_gorup_name == "" ? Name : user_gorup_name }).ToArray();
+                UserGroup = Generation.ModularGenerationRuntime.Current.FindGroup(TargetGroupPath);
+            }
+            else if(parent_user_group != null)
             {
                 if (user_gorup_name == "") UserGroup = SiemensPortal.Current.CreatePlcFolder(parent_user_group, Name);
                 if (user_gorup_name != "") UserGroup = SiemensPortal.Current.CreatePlcFolder(parent_user_group, user_gorup_name);
@@ -44,7 +49,10 @@ namespace TIA_LIB.Xml
                 if(user_gorup_name != "") UserGroup = SiemensPortal.Current.CreatePlcFolder(user_gorup_name);
             }
 
-            Xml = SiemensPortal.Current.ExportPlcBlock(UserGroup, _Name, FileName);
+            Xml = UserGroup == null && Generation.ModularGenerationRuntime.Current != null ? null : SiemensPortal.Current.ExportPlcBlock(UserGroup, _Name, FileName);
+            OriginalDocument = Xml == null ? null : new XElement(Xml);
+            if (Generation.ModularGenerationRuntime.Current != null)
+                Xml = Generation.ModularGenerationRuntime.Current.Editable(this, name, Xml);
             if (Xml != null && expectedLanguage != null &&
                 (string)Xml.Element("SW.Blocks.FB")?.Element("AttributeList")?.Element("ProgrammingLanguage") != expectedLanguage)
                 throw new InvalidOperationException("Operation interlock " + UserGroup.Name + "/" + name + " requires an " + expectedLanguage + " FB. Existing block language/type differs. Reconcile explicitly; no automatic conversion or replacement is performed.");
@@ -243,6 +251,8 @@ namespace TIA_LIB.Xml
             }
         }
         private string _Name;
+        internal XElement OriginalDocument;
+        internal string[] TargetGroupPath;
         private static HashSet<string> _ProjectCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private HashSet<string> _AllowedCultures;
 
@@ -275,6 +285,11 @@ namespace TIA_LIB.Xml
 
         private void PruneUnsupportedMultilingualTextItems()
         {
+            PruneUnsupportedMultilingualTextItems(Xml);
+        }
+
+        internal void PruneUnsupportedMultilingualTextItems(XElement document)
+        {
             if (_AllowedCultures == null || _AllowedCultures.Count == 0)
             {
                 _AllowedCultures = _ProjectCultures.Count > 0
@@ -282,7 +297,7 @@ namespace TIA_LIB.Xml
                     : new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "de-DE", "en-US" };
             }
 
-            var unsupportedItems = Xml
+            var unsupportedItems = document
                 .Descendants("MultilingualTextItem")
                 .Where(item =>
                 {

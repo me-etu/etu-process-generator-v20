@@ -44,7 +44,9 @@ namespace TIA_LIB.Xml.Network
 
             Value = value;
 
-            Xml.Descendants(_Namespace + "ConstantValue").FirstOrDefault().Value = Value;
+            var literal = Xml.Descendants(_Namespace + "ConstantValue").FirstOrDefault() ?? Xml.Descendants("ConstantValue").SingleOrDefault();
+            if (literal == null) throw new InvalidOperationException("Missing literal value in " + Network.Name + ".");
+            literal.Value = Value;
 
             Network.Block.HasChanged = true;
         }

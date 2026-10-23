@@ -119,6 +119,7 @@ namespace TIA_LIB.Generation
         public ReadOnlyCollection<GeneratedInvocation> Invocations { get; }
         public ReadOnlyCollection<string> Reads { get; }
         public ReadOnlyCollection<string> Writes { get; }
+        public ReadOnlyCollection<string> Comments { get; }
         GeneratedNetworkModel(string identity, string title, XElement original, IEnumerable<GeneratedInvocation> calls,
             IEnumerable<string> reads, IEnumerable<string> writes)
         {
@@ -126,28 +127,15 @@ namespace TIA_LIB.Generation
             Invocations = calls.ToList().AsReadOnly();
             Reads = reads.Distinct(StringComparer.OrdinalIgnoreCase).ToList().AsReadOnly();
             Writes = writes.Distinct(StringComparer.OrdinalIgnoreCase).ToList().AsReadOnly();
+            Comments = original.Descendants("MultilingualText")
+                .Where(e => (string)e.Attribute("CompositionName") == "Comment")
+                .SelectMany(e => e.Descendants("Text")).Select(e => e.Value)
+                .Where(s => !string.IsNullOrWhiteSpace(s)).ToList().AsReadOnly();
         }
         public XElement RenderFbd() { return new XElement(fbd); }
         public string RenderScl()
         {
-            var source = new StringBuilder();
-            source.AppendLine("REGION " + Title);
-            foreach (var call in Invocations)
-            {
-                bool enabled = call.Enable.Kind != GeneratedExpressionKind.Literal || call.Enable.Literal != "TRUE";
-                if (enabled) source.AppendLine("    IF " + call.Enable.RenderScl() + " THEN");
-                string indent = enabled ? "        " : "    ";
-                source.Append(indent).Append(SiemensSource.Reference(call.Instance)).Append('(');
-                source.Append(string.Join(", ", call.Arguments.Select(a => SiemensSource.Identifier(a.Name) +
-                    (a.Direction == GeneratedPinDirection.Output ? " => " : " := ") + a.Expression.RenderScl())));
-                source.AppendLine(");");
-                if (enabled) source.AppendLine("    END_IF;");
-                // Copying an FB output is distinct from executing the stateful FB. Fan-out
-                // and negated destinations must never result in another invocation.
-                foreach (var assignment in call.FollowingAssignments) source.AppendLine("    " + assignment.RenderScl());
-            }
-            source.AppendLine("END_REGION");
-            return source.ToString();
+            return new GeneratedBlockBody(new[] { new GeneratedLogicalNetwork(this) }).RenderScl();
         }
 
         public static GeneratedNetworkModel FromGeneratedFbd(string identity, string title, XElement compileUnit, IEnumerable<string> allowedBlockTypes)

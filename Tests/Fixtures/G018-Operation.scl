@@ -1,0 +1,53 @@
+REGION OP1
+    // Operation status control
+    #sfc_OP1();
+
+END_REGION
+
+REGION Interlocks
+    // Interlocks for devices and phases assigned to this operation
+    #Interlocks();
+
+END_REGION
+
+REGION *****************
+END_REGION
+
+REGION Preconditions PH-1
+    // Please assign all pre-conditions for this phase here
+    #"precond_PH-1"();
+
+END_REGION
+
+REGION Sfc control PH-1
+    // Status control of this phase with its non-technical parameters
+    #"sfc_PH-1"();
+
+END_REGION
+
+REGION PH-1
+    // Phase sequence logic
+    #"PH-1"();
+
+END_REGION
+
+REGION *****************
+END_REGION
+
+REGION Preconditions PH-2
+    // Please assign all pre-conditions for this phase here
+    #"precond_PH-2"();
+
+END_REGION
+
+REGION Sfc control PH-2
+    // Status control of this phase with its non-technical parameters
+    #"sfc_PH-2"();
+
+END_REGION
+
+REGION PH-2
+    // Phase sequence logic
+    #"PH-2"();
+
+END_REGION

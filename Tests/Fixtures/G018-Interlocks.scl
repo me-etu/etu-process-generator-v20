@@ -1,0 +1,167 @@
+REGION Function
+    // here all interlocks for this operation will be defined
+    // Later FALSE assignments execute every scan. Adjust them when adding calculated interlocks.
+
+END_REGION
+
+REGION General Interlocks
+    #PRECOND_01 := FALSE;
+    #PRECOND_02 := FALSE;
+    #PRECOND_03 := FALSE;
+    #PRECOND_04 := FALSE;
+    #PRECOND_05 := FALSE;
+    #PRECOND_06 := FALSE;
+    #PRECOND_07 := FALSE;
+    #PRECOND_08 := FALSE;
+    #PRECOND_09 := FALSE;
+    #PRECOND_10 := FALSE;
+    #PRECOND_11 := FALSE;
+    #PRECOND_12 := FALSE;
+    #PRECOND_13 := FALSE;
+    #PRECOND_14 := FALSE;
+    #PRECOND_15 := FALSE;
+    #PRECOND_16 := FALSE;
+    #PRECOND_17 := FALSE;
+    #PRECOND_18 := FALSE;
+    #PRECOND_19 := FALSE;
+    #PRECOND_20 := FALSE;
+    #PRECOND_21 := FALSE;
+    #PRECOND_22 := FALSE;
+    #PRECOND_23 := FALSE;
+    #PRECOND_24 := FALSE;
+    #PRECOND_25 := FALSE;
+    #PRECOND_26 := FALSE;
+    #PRECOND_27 := FALSE;
+    #PRECOND_28 := FALSE;
+    #PRECOND_29 := FALSE;
+    #PRECOND_30 := FALSE;
+    #PRECOND_31 := FALSE;
+    #PRECOND_32 := FALSE;
+    #PRECOND_33 := FALSE;
+    #PRECOND_34 := FALSE;
+    #PRECOND_35 := FALSE;
+    #PRECOND_36 := FALSE;
+    #PRECOND_37 := FALSE;
+    #PRECOND_38 := FALSE;
+    #PRECOND_39 := FALSE;
+    #PRECOND_40 := FALSE;
+    #PRECOND_41 := FALSE;
+    #PRECOND_42 := FALSE;
+    #PRECOND_43 := FALSE;
+    #PRECOND_44 := FALSE;
+    #PRECOND_45 := FALSE;
+    #PRECOND_46 := FALSE;
+    #PRECOND_47 := FALSE;
+    #PRECOND_48 := FALSE;
+    #PRECOND_49 := FALSE;
+    #PRECOND_50 := FALSE;
+
+END_REGION
+
+REGION PH-1 Interlocks
+    #"PH-1_PRECOND_01" := FALSE;
+    #"PH-1_PRECOND_02" := FALSE;
+    #"PH-1_PRECOND_03" := FALSE;
+    #"PH-1_PRECOND_04" := FALSE;
+    #"PH-1_PRECOND_05" := FALSE;
+    #"PH-1_PRECOND_06" := FALSE;
+    #"PH-1_PRECOND_07" := FALSE;
+    #"PH-1_PRECOND_08" := FALSE;
+    #"PH-1_PRECOND_09" := FALSE;
+    #"PH-1_PRECOND_10" := FALSE;
+    #"PH-1_PRECOND_11" := FALSE;
+    #"PH-1_PRECOND_12" := FALSE;
+    #"PH-1_PRECOND_13" := FALSE;
+    #"PH-1_PRECOND_14" := FALSE;
+    #"PH-1_PRECOND_15" := FALSE;
+    #"PH-1_PRECOND_16" := FALSE;
+    #"PH-1_PRECOND_17" := FALSE;
+    #"PH-1_PRECOND_18" := FALSE;
+    #"PH-1_PRECOND_19" := FALSE;
+    #"PH-1_PRECOND_20" := FALSE;
+    #"PH-1_PRECOND_21" := FALSE;
+    #"PH-1_PRECOND_22" := FALSE;
+    #"PH-1_PRECOND_23" := FALSE;
+    #"PH-1_PRECOND_24" := FALSE;
+    #"PH-1_PRECOND_25" := FALSE;
+    #"PH-1_PRECOND_26" := FALSE;
+    #"PH-1_PRECOND_27" := FALSE;
+    #"PH-1_PRECOND_28" := FALSE;
+    #"PH-1_PRECOND_29" := FALSE;
+    #"PH-1_PRECOND_30" := FALSE;
+    #"PH-1_PRECOND_31" := FALSE;
+    #"PH-1_PRECOND_32" := FALSE;
+    #"PH-1_PRECOND_33" := FALSE;
+    #"PH-1_PRECOND_34" := FALSE;
+    #"PH-1_PRECOND_35" := FALSE;
+    #"PH-1_PRECOND_36" := FALSE;
+    #"PH-1_PRECOND_37" := FALSE;
+    #"PH-1_PRECOND_38" := FALSE;
+    #"PH-1_PRECOND_39" := FALSE;
+    #"PH-1_PRECOND_40" := FALSE;
+    #"PH-1_PRECOND_41" := FALSE;
+    #"PH-1_PRECOND_42" := FALSE;
+    #"PH-1_PRECOND_43" := FALSE;
+    #"PH-1_PRECOND_44" := FALSE;
+    #"PH-1_PRECOND_45" := FALSE;
+    #"PH-1_PRECOND_46" := FALSE;
+    #"PH-1_PRECOND_47" := FALSE;
+    #"PH-1_PRECOND_48" := FALSE;
+    #"PH-1_PRECOND_49" := FALSE;
+    #"PH-1_PRECOND_50" := FALSE;
+
+END_REGION
+
+REGION PH-2 Interlocks
+    #"PH-2_PRECOND_01" := FALSE;
+    #"PH-2_PRECOND_02" := FALSE;
+    #"PH-2_PRECOND_03" := FALSE;
+    #"PH-2_PRECOND_04" := FALSE;
+    #"PH-2_PRECOND_05" := FALSE;
+    #"PH-2_PRECOND_06" := FALSE;
+    #"PH-2_PRECOND_07" := FALSE;
+    #"PH-2_PRECOND_08" := FALSE;
+    #"PH-2_PRECOND_09" := FALSE;
+    #"PH-2_PRECOND_10" := FALSE;
+    #"PH-2_PRECOND_11" := FALSE;
+    #"PH-2_PRECOND_12" := FALSE;
+    #"PH-2_PRECOND_13" := FALSE;
+    #"PH-2_PRECOND_14" := FALSE;
+    #"PH-2_PRECOND_15" := FALSE;
+    #"PH-2_PRECOND_16" := FALSE;
+    #"PH-2_PRECOND_17" := FALSE;
+    #"PH-2_PRECOND_18" := FALSE;
+    #"PH-2_PRECOND_19" := FALSE;
+    #"PH-2_PRECOND_20" := FALSE;
+    #"PH-2_PRECOND_21" := FALSE;
+    #"PH-2_PRECOND_22" := FALSE;
+    #"PH-2_PRECOND_23" := FALSE;
+    #"PH-2_PRECOND_24" := FALSE;
+    #"PH-2_PRECOND_25" := FALSE;
+    #"PH-2_PRECOND_26" := FALSE;
+    #"PH-2_PRECOND_27" := FALSE;
+    #"PH-2_PRECOND_28" := FALSE;
+    #"PH-2_PRECOND_29" := FALSE;
+    #"PH-2_PRECOND_30" := FALSE;
+    #"PH-2_PRECOND_31" := FALSE;
+    #"PH-2_PRECOND_32" := FALSE;
+    #"PH-2_PRECOND_33" := FALSE;
+    #"PH-2_PRECOND_34" := FALSE;
+    #"PH-2_PRECOND_35" := FALSE;
+    #"PH-2_PRECOND_36" := FALSE;
+    #"PH-2_PRECOND_37" := FALSE;
+    #"PH-2_PRECOND_38" := FALSE;
+    #"PH-2_PRECOND_39" := FALSE;
+    #"PH-2_PRECOND_40" := FALSE;
+    #"PH-2_PRECOND_41" := FALSE;
+    #"PH-2_PRECOND_42" := FALSE;
+    #"PH-2_PRECOND_43" := FALSE;
+    #"PH-2_PRECOND_44" := FALSE;
+    #"PH-2_PRECOND_45" := FALSE;
+    #"PH-2_PRECOND_46" := FALSE;
+    #"PH-2_PRECOND_47" := FALSE;
+    #"PH-2_PRECOND_48" := FALSE;
+    #"PH-2_PRECOND_49" := FALSE;
+    #"PH-2_PRECOND_50" := FALSE;
+
+END_REGION

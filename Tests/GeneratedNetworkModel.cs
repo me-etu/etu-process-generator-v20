@@ -34,6 +34,7 @@ public static class GeneratedNetworkModelTests
             case "Blank": return new string(' ', (int)element.Attribute("Num"));
             case "NewLine": return new string('\n', (int)element.Attribute("Num"));
             case "Text": return element.Value;
+            case "LineComment": return "//" + element.Value;
             case "Component": return "\"" + (string)element.Attribute("Name") + "\"";
             case "ConstantValue": return element.Value;
             case "Parameter": return "\"" + (string)element.Attribute("Name") + "\"" + string.Concat(element.Elements().Select(ReadStructuredText));

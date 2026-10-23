@@ -382,7 +382,7 @@ public static class ModularControlRoutingTests
                 }
                 var groupedBody = new GeneratedBlockBody(logicalDevices);
                 Check(groupedBody.Networks.Select(n => n.Body.Title).SequenceEqual(new[] { "DI-1", "AI-1", "V-1", "CV-1", "M-1", "MC-1", "PID-1" }), "Seven device groups differ from golden order.");
-                Check(groupedBody.RenderScl().Contains("REGION Devices\r\nREGION Digital_Sensors\r\nREGION DI-1"), "SCL nesting differs.");
+                Check(groupedBody.RenderScl().Contains("REGION Devices\r\n    // All assigned IOs to this unit\r\n    REGION Digital_Sensors\r\n        REGION DI-1"), "SCL nesting/indentation/comment differs.");
                 var structured = new StructuredTextBodyRenderer().Render(groupedBody);
                 Check(System.Text.RegularExpressions.Regex.Replace(GeneratedNetworkModelTests.ReadStructuredText(structured), @"\s+", "") ==
                     System.Text.RegularExpressions.Regex.Replace(groupedBody.RenderScl(), @"\s+", ""), "Seven-family SCL token/source parity differs.");

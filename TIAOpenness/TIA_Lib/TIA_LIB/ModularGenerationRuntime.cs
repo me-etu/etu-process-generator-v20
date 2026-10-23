@@ -82,7 +82,7 @@ namespace TIA_LIB.Generation
             string file = Ledger("type/" + name);
             if (!File.Exists(file)) return false;
             var record = XElement.Load(file);
-            return record.Name == "EtuOwnedType" && (string)record.Attribute("Version") == "1" &&
+            return record.Name == "EtuOwnedType" && ((string)record.Attribute("Version") == "1" || (string)record.Attribute("Version") == "2") &&
                 (string)record.Attribute("Name") == name && (string)record.Attribute("Owner") == Owner(name);
         }
         internal PlcBlockUserGroup FindGroup(IEnumerable<string> path)
@@ -110,6 +110,27 @@ namespace TIA_LIB.Generation
                 group = composition.Find(name) ?? composition.Create(name);
             }
             return group;
+        }
+        static string[] TypeParentPath(PlcType type)
+        {
+            var path = new List<string>();
+            var group = type.Parent as PlcTypeUserGroup;
+            while (group != null) { path.Add(group.Name); group = group.Parent as PlcTypeUserGroup; }
+            path.Reverse(); return path.ToArray();
+        }
+        static PlcTypeComposition TypeComposition(IEnumerable<string> path, bool create)
+        {
+            PlcTypeUserGroup group = null;
+            foreach (string name in path)
+            {
+                var groups = group == null ? SiemensPortal.Current.PlcSoftware.TypeGroup.Groups : group.Groups;
+                var matches = groups.Where(g => string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase)).ToArray();
+                if (matches.Length > 1 || matches.Any(g => g.Name != name))
+                    throw new InvalidOperationException("PLC type folder spelling/case collision: " + name);
+                group = matches.SingleOrDefault();
+                if (group == null) { if (!create) return null; group = groups.Create(name); }
+            }
+            return group == null ? SiemensPortal.Current.PlcSoftware.TypeGroup.Types : group.Types;
         }
         internal XElement Editable(XmlBlock block, string name, XElement exported)
         {
@@ -273,7 +294,15 @@ namespace TIA_LIB.Generation
                     var model = GeneratedNetworkModel.FromGeneratedFbd(BlockName(block) + "/" + modelNetwork.Name, modelNetwork.Name, network, allowed);
                     DeviceCategory? category = null;
                     if (unit != null && unit.Devices.ContainsKey(modelNetwork.Name)) category = GeneratedBlockBody.CategoryFor(modelNetwork.Calls[modelNetwork.Name].BlockName);
-                    logical.Add(new GeneratedLogicalNetwork(model, category));
+                    string description = null;
+                    XmlLocalInstance deviceInstance;
+                    if (category.HasValue && block.LocalInstance.TryGetValue(modelNetwork.Name, out deviceInstance))
+                    {
+                        var comment = deviceInstance.Xml.Elements().FirstOrDefault(e => e.Name.LocalName == "Comment");
+                        description = comment?.Elements().FirstOrDefault(e => e.Name.LocalName == "MultiLanguageText" &&
+                            string.Equals((string)e.Attribute("Lang"), block.GetCommentCulture(), StringComparison.OrdinalIgnoreCase))?.Value;
+                    }
+                    logical.Add(new GeneratedLogicalNetwork(model, category, NetworkRole(block, modelNetwork.Name), description));
                 }
                 var plan = new GeneratedBlockBody(logical);
                 networks = SelectedLanguage == "FBD" ? (IEnumerable<XElement>)plan.RenderFbd() : new[] { SclNetwork(new StructuredTextBodyRenderer().Render(plan)) };
@@ -284,6 +313,30 @@ namespace TIA_LIB.Generation
             block.PruneUnsupportedMultilingualTextItems(rendered);
             block.PruneUnsupportedMultilingualTextItems(shadow);
             return rendered;
+        }
+        static GeneratedNetworkRole NetworkRole(XmlBlock block, string network)
+        {
+            var unit = block as XmlUnit;
+            if (unit != null)
+            {
+                if (network == unit.Name) return GeneratedNetworkRole.UnitStatus;
+                if (network == "Preconditions " + unit.Name) return GeneratedNetworkRole.UnitPreconditions;
+                if (network == "Unit sfc control") return GeneratedNetworkRole.UnitControl;
+                if (unit.Operations != null && unit.Operations.ContainsKey(network)) return GeneratedNetworkRole.OperationCall;
+            }
+            var operation = block as XmlOperation;
+            if (operation != null)
+            {
+                if (network == operation.Name) return GeneratedNetworkRole.OperationControl;
+                if (network == "Interlocks") return GeneratedNetworkRole.OperationInterlocks;
+                foreach (string phase in operation.PhaseOrder ?? new List<string>())
+                {
+                    if (network == "Preconditions " + phase) return GeneratedNetworkRole.PhasePreconditions;
+                    if (network == "Sfc control " + phase) return GeneratedNetworkRole.PhaseControl;
+                    if (network == phase) return GeneratedNetworkRole.PhaseCall;
+                }
+            }
+            return GeneratedNetworkRole.None;
         }
         static XElement SclNetwork(XElement source)
         {
@@ -448,6 +501,7 @@ namespace TIA_LIB.Generation
             // Capture the original blocks before any review gate can stop planning.
             ExportBlock("cfgData"); ExportBlock(BlockName(project.Plant));
             foreach (var block in OwnedBlocks()) ExportBlock(BlockName(block));
+            UnitConfigurationPlan.ValidateUnitNames(OrderedUnits().Select(u => new UnitConfigurationPlan(u.Name, new ConfigurationLeaf[0])));
             ModularControlRouting.Prepare(project.Plant);
             PlanConfiguration();
             PreserveStagingOverrides();
@@ -458,6 +512,18 @@ namespace TIA_LIB.Generation
             }
             var owned = OwnedBlocks().ToArray();
             foreach (var block in owned) Add("block", BlockName(block), Render(block), block.UserGroup, block);
+            var folderPlan = new XElement("UnitTypeFolders", new XAttribute("Context", context),
+                new XElement("ExistingTypeMove", "No verified identity-preserving move API; existing wrong-folder types stop for explicit reconciliation. No delete/recreate."));
+            foreach (var artifact in artifacts.Where(a => a.Kind == "type"))
+            {
+                artifact.GroupPath = UnitTypeFolderPolicy.Target(artifact.Name, OrderedUnits().Select(u => u.Name));
+                artifact.Existing = ExportType(artifact.Name);
+                folderPlan.Add(new XElement("Type", new XAttribute("Name", artifact.Name),
+                    new XAttribute("ExistingFolder", artifact.Existing == null ? "absent" : string.Join("/", TypeParentPath(types[artifact.Name]))),
+                    new XAttribute("TargetFolder", string.Join("/", artifact.GroupPath)),
+                    new XAttribute("Backup", artifact.Existing == null ? "none" : Hash("type/" + artifact.Name) + "-backup.xml")));
+            }
+            folderPlan.Save(Path.Combine(runDirectory, "type-folder-plan.xml"));
             foreach (var block in owned)
             foreach (string entry in block.Instances)
             {
@@ -496,13 +562,19 @@ namespace TIA_LIB.Generation
             {
                 if (artifact.Kind == "type")
                 {
+                    TypeComposition(artifact.GroupPath, false); // read-only folder/case collision check
                     if (blocks.ContainsKey(artifact.Name)) throw new InvalidOperationException("Generated UDT conflicts with a CPU block: " + artifact.Name);
                     artifact.Existing = ExportType(artifact.Name);
                     if (artifact.Existing != null)
                     {
-                        if (!OwnsType(artifact.Name) ||
-                            !Equals(types[artifact.Name].Parent, SiemensPortal.Current.PlcSoftware.TypeGroup))
-                            throw new InvalidOperationException("Existing UDT '" + artifact.Name + "' requires explicit ownership/folder review before replacement. Backup: " + runDirectory);
+                        string ledger = Ledger("type/" + artifact.Name);
+                        try
+                        {
+                            UnitTypeFolderPolicy.Validate(File.Exists(ledger) ? XElement.Load(ledger) : null, Owner(artifact.Name), artifact.Name,
+                                TypeParentPath(types[artifact.Name]), artifact.GroupPath, artifact.Existing);
+                        }
+                        catch (InvalidOperationException error)
+                        { throw new InvalidOperationException(error.Message + " Type folder plan and backups: " + runDirectory, error); }
                         if (!artifact.Name.StartsWith("udtCfg_", StringComparison.Ordinal))
                         {
                             var merged = new XElement(artifact.Existing);
@@ -690,7 +762,7 @@ namespace TIA_LIB.Generation
                 if (currentTypes.TryGetValue(artifact.Name, out current))
                 {
                     if (artifact.Existing == null) throw new InvalidOperationException("Type appeared after preflight: " + artifact.Name);
-                    if (!Equals(current.Parent, SiemensPortal.Current.PlcSoftware.TypeGroup)) throw new InvalidOperationException("Type moved after preflight: " + artifact.Name);
+                    if (!TypeParentPath(current).SequenceEqual(artifact.GroupPath)) throw new InvalidOperationException("Type moved after preflight: " + artifact.Name);
                     string file = Path.Combine(runDirectory, Hash(artifact.Id) + "-recheck.xml"); current.Export(new FileInfo(file), ExportOptions.WithDefaults);
                     if (ManagedArtifactOwnership.Fingerprint(XElement.Load(file)) != ManagedArtifactOwnership.Fingerprint(artifact.Existing)) throw new InvalidOperationException("Type changed after preflight: " + artifact.Name);
                 }
@@ -740,6 +812,7 @@ namespace TIA_LIB.Generation
                 artifact.Group = artifact.Group ?? CreateGroup(artifact.GroupPath);
                 if (artifact.Block != null) artifact.Block.UserGroup = artifact.Group;
             }
+            foreach (var artifact in artifacts.Where(a => a.Kind == "type")) TypeComposition(artifact.GroupPath, true);
         }
         void PrepareInstance(Artifact artifact, StringBuilder log)
         {
@@ -790,13 +863,19 @@ namespace TIA_LIB.Generation
                     string file = Path.Combine(runDirectory, Hash(artifact.Id) + "-generated.xml");
                     if (artifact.Kind == "type")
                     {
-                        SiemensPortal.Current.PlcSoftware.TypeGroup.Types.Import(new FileInfo(file), ImportOptions.Override);
-                        var typeResult = SiemensPortal.Current.PlcSoftware.TypeGroup.Types.Find(artifact.Name).GetService<ICompilable>().Compile();
+                        var composition = TypeComposition(artifact.GroupPath, false);
+                        if (composition == null) throw new InvalidOperationException("PLC type folder disappeared before import: " + artifact.Name);
+                        composition.Import(new FileInfo(file), ImportOptions.Override);
+                        var importedType = composition.Find(artifact.Name);
+                        if (importedType == null) throw new InvalidOperationException("Imported type missing from planned folder: " + artifact.Name);
+                        var typeResult = importedType.GetService<ICompilable>().Compile();
                         // Installed Openness topic 58295603339 lists PlcType as ICompilable.
                         AppendMessages(typeResult.Messages, log);
                         log.AppendLine("Type compile " + artifact.Name + ": " + typeResult.ErrorCount + " errors, " + typeResult.WarningCount + " warnings.");
                         if (typeResult.ErrorCount != 0 || typeResult.State == CompilerResultState.Error) throw new InvalidOperationException("PLC datatype compilation failed for " + artifact.Name);
-                        new XElement("EtuOwnedType", new XAttribute("Version", "1"), new XAttribute("Owner", Owner(artifact.Name)), new XAttribute("Name", artifact.Name)).Save(Ledger("type/" + artifact.Name));
+                        string published = Path.Combine(runDirectory, Hash(artifact.Id) + "-published.xml");
+                        importedType.Export(new FileInfo(published), ExportOptions.WithDefaults);
+                        UnitTypeFolderPolicy.Capture(Owner(artifact.Name), artifact.Name, artifact.GroupPath, XElement.Load(published)).Save(Ledger("type/" + artifact.Name));
                     }
                     else if (artifact.Kind == "instance")
                     {

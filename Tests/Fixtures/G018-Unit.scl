@@ -1,0 +1,55 @@
+REGION U-1
+    // Unit status
+    #"U-1"(OP_REQ := TRUE,
+           ALARM := TRUE,
+           WARN := TRUE);
+
+END_REGION
+
+REGION Preconditions U-1
+    // Unit preconditions for recipe mode
+    #"precond_U-1"();
+
+END_REGION
+
+REGION Unit sfc control
+    // Unit status control
+    #"sfc_U-1"(isUnit := TRUE,
+               Reset := TRUE);
+
+END_REGION
+
+REGION Devices
+    // All assigned IOs to this unit
+    REGION Digital_Sensors
+        REGION DI-1
+            // Overfill protection
+            #"DI-1"();
+
+        END_REGION
+
+    END_REGION
+
+    REGION Analog_Sensors
+        REGION AI-1
+            #"AI-1"();
+
+        END_REGION
+
+    END_REGION
+
+END_REGION
+
+REGION Operations
+    // Operations under this unit
+    REGION OP1
+        #OP1();
+
+    END_REGION
+
+    REGION OP2
+        #OP2();
+
+    END_REGION
+
+END_REGION

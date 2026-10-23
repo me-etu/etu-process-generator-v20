@@ -60,13 +60,49 @@ namespace TIA_LIB.Generation
                 default: throw new InvalidOperationException("Unsupported structured expression.");
             }
         }
-        void Region(XElement destination, string title)
-        { destination.Add(Token("REGION"), Blank(), Node("Text", SiemensSource.RegionTitle(title)), Line()); }
-        void EndRegion(XElement destination) { destination.Add(Token("END_REGION"), Line()); }
-        void Invocation(XElement destination, GeneratedInvocation invocation, bool instruction = false)
+        void Indent(XElement destination, int depth) { if (depth != 0) destination.Add(Node("Blank", new XAttribute("Num", depth * 4))); }
+        void Comment(XElement destination, string text, int depth)
         {
-            bool conditional = invocation.Enable.Kind != GeneratedExpressionKind.Literal || invocation.Enable.Literal != "TRUE";
-            if (conditional) destination.Add(Token("IF"), Blank(), Expression(invocation.Enable), Blank(), Token("THEN"), Line());
+            foreach (string line in text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+            {
+                Indent(destination, depth);
+                destination.Add(Node("LineComment", new XAttribute("Inserted", "false"), new XAttribute("NoClosingBracket", "false"), Node("Text", " " + line)), Line());
+            }
+        }
+        void Region(XElement destination, string title, int depth)
+        { Indent(destination, depth); destination.Add(Token("REGION"), Blank(), Node("Text", SiemensSource.RegionTitle(title)), Line()); }
+        void EndRegion(XElement destination, int depth, bool nonempty = true)
+        { if (nonempty) destination.Add(Line()); Indent(destination, depth); destination.Add(Token("END_REGION"), Line()); }
+
+        // Prove only closed Boolean trees. Symbols (including ENO), comparisons and
+        // unknown forms are never evaluated or inferred from a producer's EN.
+        internal static bool? ConstantEnable(GeneratedExpression expression)
+        {
+            if (expression.Kind == GeneratedExpressionKind.Literal && expression.Datatype == "Bool")
+            {
+                if (expression.Literal == "TRUE") return true;
+                if (expression.Literal == "FALSE") return false;
+            }
+            if (expression.Kind == GeneratedExpressionKind.Not && expression.Operands.Count == 1)
+            { var value = ConstantEnable(expression.Operands[0]); return value.HasValue ? (bool?)!value.Value : null; }
+            if ((expression.Kind == GeneratedExpressionKind.And || expression.Kind == GeneratedExpressionKind.Or) && expression.Operands.Count > 0)
+            {
+                var values = expression.Operands.Select(ConstantEnable).ToArray();
+                if (values.Any(v => !v.HasValue)) return null;
+                return expression.Kind == GeneratedExpressionKind.And ? values.All(v => v.Value) : values.Any(v => v.Value);
+            }
+            return null;
+        }
+        static int DisplayLength(SymbolReference reference)
+        {
+            return (reference.IsGlobal ? 0 : 1) + reference.Components.Sum(c =>
+                System.Text.RegularExpressions.Regex.IsMatch(c, @"\A[A-Za-z_][A-Za-z_0-9]*\z") ? c.Length : c.Length + 2) + reference.Components.Count - 1;
+        }
+        void Invocation(XElement destination, GeneratedInvocation invocation, int depth, bool instruction = false)
+        {
+            bool conditional = ConstantEnable(invocation.Enable) != true;
+            if (conditional) { Indent(destination, depth); destination.Add(Token("IF"), Blank(), Expression(invocation.Enable), Blank(), Token("THEN"), Line()); depth++; }
+            Indent(destination, depth);
             var call = instruction ? Node("Instruction") : Node("CallInfo", new XAttribute("BlockType", "FB"), new XAttribute("Name", invocation.BlockType));
             if (!instruction) call.Add(Node("Instance", new XAttribute("Scope", invocation.Instance.IsGlobal ? "GlobalVariable" : "LocalVariable"),
                 invocation.Instance.Components.Select(c => Node("Component", new XAttribute("Name", c)))));
@@ -74,67 +110,130 @@ namespace TIA_LIB.Generation
             bool first = true;
             foreach (var argument in invocation.Arguments)
             {
-                if (!first) call.Add(Token(","), Blank());
+                if (!first) call.Add(Token(","), Line(), Node("Blank", new XAttribute("Num", depth * 4 + DisplayLength(invocation.Instance) + 1)));
                 first = false;
-                call.Add(Node("Parameter", new XAttribute("Name", argument.Name),
+                call.Add(Node("Parameter", new XAttribute("Name", argument.Name), Blank(),
                     Token(argument.Direction == GeneratedPinDirection.Output ? "=>" : ":="), Blank(), Expression(argument.Expression)));
             }
             call.Add(Token(")"));
             if (instruction) destination.Add(Symbol(invocation.Instance));
             destination.Add(Node("Access", new XAttribute("Scope", "Call"), call), Token(";"), Line());
-            if (conditional) destination.Add(Token("END_IF"), Token(";"), Line());
+            if (conditional) { depth--; Indent(destination, depth); destination.Add(Token("END_IF"), Token(";"), Line()); }
             foreach (var assignment in invocation.FollowingAssignments)
-                destination.Add(Expression(assignment.Destination), Blank(), Token(":="), Blank(), Expression(assignment.Value), Token(";"), Line());
+            { Indent(destination, depth); destination.Add(Expression(assignment.Destination), Blank(), Token(":="), Blank(), Expression(assignment.Value), Token(";"), Line()); }
+        }
+        static string Purpose(GeneratedLogicalNetwork network)
+        {
+            switch (network.Role)
+            {
+                case GeneratedNetworkRole.UnitStatus: return "Unit status";
+                case GeneratedNetworkRole.UnitPreconditions: return "Unit preconditions for recipe mode";
+                case GeneratedNetworkRole.UnitControl: return "Unit status control";
+                case GeneratedNetworkRole.OperationControl: return "Operation status control";
+                case GeneratedNetworkRole.OperationInterlocks: return "Interlocks for devices and phases assigned to this operation";
+                case GeneratedNetworkRole.PhasePreconditions: return "Please assign all pre-conditions for this phase here";
+                case GeneratedNetworkRole.PhaseControl: return "Status control of this phase with its non-technical parameters";
+                case GeneratedNetworkRole.PhaseCall: return "Phase sequence logic";
+                default: return network.Description;
+            }
         }
         public XElement Render(GeneratedBlockBody body)
         {
             var result = new XElement(Namespace + "StructuredText");
-            bool devices = false;
+            bool devices = false, operations = false, completedOperations = false;
             DeviceCategory? category = null;
             foreach (var network in body.Networks)
             {
+                if (devices && !network.Category.HasValue)
+                { EndRegion(result, 1); EndRegion(result, 0); devices = false; category = null; }
+                if (operations && network.Role != GeneratedNetworkRole.OperationCall)
+                { EndRegion(result, 0); operations = false; completedOperations = true; }
                 if (network.Category.HasValue)
                 {
-                    if (!devices) { Region(result, "Devices"); devices = true; }
+                    if (!devices)
+                    { if (result.HasElements) result.Add(Line()); Region(result, "Devices", 0); Comment(result, "All assigned IOs to this unit", 1); devices = true; }
                     if (category != network.Category)
                     {
-                        if (category.HasValue) EndRegion(result);
-                        category = network.Category; Region(result, category.Value.ToString());
+                        if (category.HasValue) { EndRegion(result, 1); result.Add(Line()); }
+                        category = network.Category; Region(result, category.Value.ToString(), 1);
                     }
+                    else result.Add(Line());
                 }
-                else if (devices) { EndRegion(result); EndRegion(result); devices = false; category = null; }
-                Region(result, network.Body.Title);
-                foreach (var call in network.Body.Invocations) Invocation(result, call);
-                EndRegion(result);
+                else if (result.HasElements) result.Add(Line());
+                if (network.Role == GeneratedNetworkRole.OperationCall && !operations)
+                {
+                    if (completedOperations) throw new InvalidOperationException("Operation calls are not contiguous; reconcile the model without changing scan order.");
+                    Region(result, "Operations", 0); Comment(result, "Operations under this unit", 1); operations = true;
+                }
+                int depth = devices ? 2 : operations ? 1 : 0;
+                if (network.Role == GeneratedNetworkRole.PhasePreconditions)
+                { Region(result, "*****************", depth); EndRegion(result, depth, false); result.Add(Line()); }
+                Region(result, network.Body.Title, depth);
+                var comments = network.Body.Comments;
+                foreach (string comment in comments) Comment(result, comment, depth + 1);
+                string purpose = Purpose(network);
+                if (comments.Count == 0 && !string.IsNullOrWhiteSpace(purpose)) Comment(result, purpose, depth + 1);
+                bool first = true;
+                foreach (var call in network.Body.Invocations)
+                { if (!first) result.Add(Line()); first = false; Invocation(result, call, depth + 1); }
+                EndRegion(result, depth, comments.Count != 0 || !string.IsNullOrWhiteSpace(purpose) || network.Body.Invocations.Count != 0);
             }
-            if (devices) { EndRegion(result); EndRegion(result); }
-            // A renderer instance can be reused without introducing run-dependent IDs.
-            int id = 20;
-            foreach (var element in result.Descendants())
-                if (element.Attribute("UId") != null) element.SetAttributeValue("UId", ++id);
-            return result;
+            if (devices) { EndRegion(result, 1); EndRegion(result, 0); }
+            if (operations) EndRegion(result, 0);
+            return Renumber(result);
         }
-        public XElement Render(GeneratedStructuredBody model)
+        static XElement Renumber(XElement result)
         {
-            var result = new XElement(Namespace + "StructuredText");
-            foreach (var region in model.Regions) GeneratedRegion(result, region);
             int id = 20;
             foreach (var element in result.Descendants()) if (element.Attribute("UId") != null) element.SetAttributeValue("UId", ++id);
             return result;
         }
-        void GeneratedRegion(XElement destination, GeneratedRegion region)
+        // Readable diagnostic source from the same typed token tree. Always quote
+        // identifiers here; Portal may omit optional quotes in its source export.
+        public static string ReadSource(XElement element)
         {
-            Region(destination, region.Title);
-            foreach (string comment in region.Comments) destination.Add(Node("LineComment", new XAttribute("Inserted", "false"), new XAttribute("NoClosingBracket", "false"), Node("Text", " " + comment)), Line());
+            switch (element.Name.LocalName)
+            {
+                case "Token": return (string)element.Attribute("Text");
+                case "Blank": return new string(' ', (int)element.Attribute("Num"));
+                case "NewLine": return string.Concat(Enumerable.Repeat(Environment.NewLine, (int)element.Attribute("Num")));
+                case "Text": case "ConstantValue": return element.Value;
+                case "ConstantType": return "";
+                case "Component": return SiemensSource.Identifier((string)element.Attribute("Name"));
+                case "Parameter": return SiemensSource.Identifier((string)element.Attribute("Name")) + string.Concat(element.Elements().Select(ReadSource));
+                case "LineComment": return "//" + element.Value;
+                case "Access": return ((string)element.Attribute("Scope") == "LocalVariable" ? "#" : "") + string.Concat(element.Elements().Select(ReadSource));
+                case "CallInfo":
+                    var instance = element.Elements().Single(e => e.Name.LocalName == "Instance");
+                    return ((string)instance.Attribute("Scope") == "LocalVariable" ? "#" : "") + string.Join(".", instance.Elements().Select(ReadSource)) +
+                        string.Concat(element.Elements().Where(e => e != instance).Select(ReadSource));
+                default: return string.Concat(element.Elements().Select(ReadSource));
+            }
+        }
+        public XElement Render(GeneratedStructuredBody model)
+        {
+            var result = new XElement(Namespace + "StructuredText");
+            foreach (var region in model.Regions)
+            { if (result.HasElements) result.Add(Line()); GeneratedRegion(result, region, 0); }
+            return Renumber(result);
+        }
+        void GeneratedRegion(XElement destination, GeneratedRegion region, int depth)
+        {
+            Region(destination, region.Title, depth);
+            foreach (string comment in region.Comments) Comment(destination, comment, depth + 1);
+            bool previousCall = false;
             foreach (var statement in region.Statements)
             {
-                if (statement.Assignment == null) { Invocation(destination, statement.Call, statement.Instruction); continue; }
-                if (statement.Condition != null) destination.Add(Token("IF"), Blank(), Expression(statement.Condition), Blank(), Token("THEN"), Line());
+                if (statement.Assignment == null)
+                { if (previousCall) destination.Add(Line()); Invocation(destination, statement.Call, depth + 1, statement.Instruction); previousCall = true; continue; }
+                previousCall = false;
+                if (statement.Condition != null) { Indent(destination, depth + 1); destination.Add(Token("IF"), Blank(), Expression(statement.Condition), Blank(), Token("THEN"), Line()); }
+                Indent(destination, depth + (statement.Condition == null ? 1 : 2));
                 destination.Add(Expression(statement.Assignment.Destination), Blank(), Token(":="), Blank(), Expression(statement.Assignment.Value), Token(";"), Line());
-                if (statement.Condition != null) destination.Add(Token("END_IF"), Token(";"), Line());
+                if (statement.Condition != null) { Indent(destination, depth + 1); destination.Add(Token("END_IF"), Token(";"), Line()); }
             }
-            foreach (var child in region.Children) GeneratedRegion(destination, child);
-            EndRegion(destination);
+            foreach (var child in region.Children) { destination.Add(Line()); GeneratedRegion(destination, child, depth + 1); }
+            EndRegion(destination, depth, region.Comments.Count + region.Statements.Count + region.Children.Count != 0);
         }
     }
 }

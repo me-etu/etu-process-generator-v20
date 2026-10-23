@@ -620,6 +620,14 @@ These files are used by the simulator and are currently maintained manually. Aft
 
 ## Troubleshooting And Known Failure Modes
 
+### G-018 SCL layout and Unit type folders
+
+- Non-Phase SCL layout is emitted as typed StructuredText tokens: four-space nesting, multiline call parameters, explicit blanks/newlines and role-based comments. Unit/Operation identity and configured phase inventory supply roles; device descriptions reuse the direct Static comment in the selected culture. Existing network comment content takes precedence. Operations must be contiguous in the finalized schedule; the renderer rejects split groups without moving calls. Phase template paths bypass this policy.
+- Only closed Bool literal/NOT/AND/OR trees may prove an invocation enable TRUE. Symbols, ENO and comparisons remain conditional; arguments and generic/FBD expressions are never propagated. Output copies remain separate after their original invocation/conditional. Readable network/block diagnostics now read the same token tree, avoiding a second formatting implementation.
+- Actual planned hwIN/hwOUT/udtCfg types target PLC data types/<SafeUnit>. Type ownership v2 records folder and full normalized export fingerprint. Unchanged v1 block records still restore their verified FBD shadow for a style upgrade; type v1 records lack a content hash and cannot authorize migration/adoption.
+- Installed V21 PlcType/PlcTypeComposition/PlcTypeUserGroup metadata has no move method. Existing root/wrong-folder/unowned/modified types stop for reconciliation with type-folder-plan.xml and exported backups under the reported run directory. Do not delete/recreate or manually move then edit a ledger to bypass this guard. Fresh nested imports and unchanged v2 nested reruns use the planned composition throughout the lifecycle. Later disposable-project verification must confirm editor whitespace, separator labels, folder placement and repeat import/compile; offline tests do not certify these UI/API effects.
+- Run powershell -NoProfile -ExecutionPolicy Bypass -File Tests/Verify-SclStyleAndTypeFolders.ps1 plus the eleven G-017 suites, each in its own process. Use -LibraryPath ./etu-process-generator-TiAv21/bin/Debug/TIA_LIB.dll for AnyCPU after building that configuration.
+
 ### SFC controller HSS connection (G-016)
 
 The three constructor routes delegate to `XmlBlock.ConfigureSfcControl`: `XmlUnit` uses network `Unit sfc control` / instance `sfc_<unit>`; `XmlOperation` uses network `<operation>` / `sfc_<operation>`; `XmlPhase` uses its owning operation's network `Sfc control <phase>` / `sfc_<phase>`. The helper creates a call only when the network is new and otherwise requires the exact local `fbControlSfc` identity and Static declaration. Only fresh networks run the existing initializers. Cached AddUnit/AddOP/AddPH retain the configured calls.

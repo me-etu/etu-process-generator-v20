@@ -7,15 +7,25 @@ using System.Xml.Linq;
 
 namespace TIA_LIB.Generation
 {
+    public enum GeneratedNetworkRole
+    {
+        None, UnitStatus, UnitPreconditions, UnitControl, OperationCall,
+        OperationControl, OperationInterlocks, PhasePreconditions, PhaseControl, PhaseCall
+    }
     public sealed class GeneratedLogicalNetwork
     {
         public GeneratedNetworkModel Body { get; }
         public DeviceCategory? Category { get; }
-        public GeneratedLogicalNetwork(GeneratedNetworkModel body, DeviceCategory? category = null)
+        public GeneratedNetworkRole Role { get; }
+        public string Description { get; }
+        public GeneratedLogicalNetwork(GeneratedNetworkModel body, DeviceCategory? category = null,
+            GeneratedNetworkRole role = GeneratedNetworkRole.None, string description = null)
         {
             Body = body ?? throw new ArgumentNullException(nameof(body));
             if (category.HasValue && !Enum.IsDefined(typeof(DeviceCategory), category.Value)) throw new ArgumentOutOfRangeException(nameof(category));
             Category = category;
+            Role = role;
+            Description = description;
         }
     }
 
@@ -45,29 +55,7 @@ namespace TIA_LIB.Generation
         }
         public string RenderScl()
         {
-            var text = new StringBuilder();
-            bool devices = false;
-            DeviceCategory? category = null;
-            foreach (var network in Networks)
-            {
-                if (network.Category.HasValue)
-                {
-                    if (!devices) { text.AppendLine("REGION Devices"); devices = true; }
-                    if (category != network.Category)
-                    {
-                        if (category.HasValue) text.AppendLine("END_REGION");
-                        category = network.Category;
-                        text.AppendLine("REGION " + category.Value);
-                    }
-                }
-                else if (devices)
-                {
-                    text.AppendLine("END_REGION"); text.AppendLine("END_REGION"); devices = false; category = null;
-                }
-                text.Append(network.Body.RenderScl());
-            }
-            if (devices) { text.AppendLine("END_REGION"); text.AppendLine("END_REGION"); }
-            return text.ToString();
+            return StructuredTextBodyRenderer.ReadSource(new StructuredTextBodyRenderer().Render(this));
         }
         public ReadOnlyCollection<XElement> RenderFbd()
         {

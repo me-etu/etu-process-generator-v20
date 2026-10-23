@@ -7,6 +7,37 @@ using TIA_LIB.SignalStaging;
 
 namespace TIA_LIB.Generation
 {
+    // Folder/ownership policy is pure; Portal lookups and imports stay in runtime.
+    public static class UnitTypeFolderPolicy
+    {
+        public static string[] Target(string typeName, IEnumerable<string> units)
+        {
+            var names = units.Select(u => new UnitConfigurationPlan(u, new ConfigurationLeaf[0])).ToArray();
+            UnitConfigurationPlan.ValidateUnitNames(names);
+            var owner = names.SingleOrDefault(u => typeName == "hwIN_" + u.SafeUnit ||
+                typeName == "hwOUT_" + u.SafeUnit || typeName == u.UdtName);
+            if (owner == null) throw new InvalidOperationException("No completed Unit owns generated type " + typeName + ".");
+            return new[] { owner.SafeUnit };
+        }
+        public static XElement Capture(string owner, string name, string[] folder, XElement exported)
+        {
+            return new XElement("EtuOwnedType", new XAttribute("Version", "2"), new XAttribute("Owner", owner),
+                new XAttribute("Name", name), new XAttribute("ExportHash", ManagedArtifactOwnership.Fingerprint(exported)),
+                new XElement("Folder", folder.Select(p => new XElement("Group", p))));
+        }
+        public static void Validate(XElement record, string owner, string name, string[] currentFolder, string[] targetFolder, XElement exported)
+        {
+            if (record == null || record.Name != "EtuOwnedType" || (string)record.Attribute("Owner") != owner || (string)record.Attribute("Name") != name)
+                throw new InvalidOperationException("Existing UDT '" + name + "' has no verified project/PLC ownership; reconcile explicitly.");
+            if ((string)record.Attribute("Version") == "1" && currentFolder.Length == 0)
+                throw new InvalidOperationException("Existing root UDT '" + name + "' requires folder reconciliation. The installed PlcType API exposes no verified identity-preserving move operation; automatic delete/recreate is disabled. The prior v1 ledger has no content fingerprint. Review type-folder-plan.xml and backups; fresh Unit types support nested creation.");
+            if ((string)record.Attribute("Version") != "2" || !currentFolder.SequenceEqual(targetFolder) ||
+                !record.Elements("Folder").SelectMany(e => e.Elements("Group")).Select(e => e.Value).SequenceEqual(currentFolder))
+                throw new InvalidOperationException("Existing UDT '" + name + "' moved or has an incompatible ownership folder. Preserve and reconcile explicitly.");
+            if ((string)record.Attribute("ExportHash") != ManagedArtifactOwnership.Fingerprint(exported))
+                throw new InvalidOperationException("Existing UDT '" + name + "' changed after generation; preserve its manual members/comments/values and reconcile explicitly.");
+        }
+    }
     // Planning foundation for G-017. Not selected by the live generator until both
     // renderers, library-contract checks and migration preflight are implemented.
     public enum DeviceCategory

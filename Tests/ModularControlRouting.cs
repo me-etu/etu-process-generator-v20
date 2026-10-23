@@ -90,6 +90,42 @@ public static class ModularControlRoutingTests
             order.IndexOf("block/cfgData") < order.IndexOf("block/Unit") && order.IndexOf("block/Operation") < order.IndexOf("block/Unit") &&
             order.IndexOf("block/Unit") < order.IndexOf("instance/UnitDB") && order.IndexOf("instance/UnitDB") < order.IndexOf("block/Plant"), "Runtime dependency order differs from required compile/import order.");
     }
+    static void RuntimePaths()
+    {
+        const string working = @"C:\Users\User\source\repos\me-etu\etu-process-generator-v20\etu-process-generator-TiAv21\bin\Debug";
+        string owner = Path.Combine(working, "GeneratedModels", new string('A', 64));
+        var type = typeof(PlcProject).Assembly.GetType("TIA_LIB.Generation.ModularGenerationRuntime");
+        var build = type.GetMethod("BuildRunDirectory", BindingFlags.Static | BindingFlags.NonPublic);
+        var runtime = FormatterServices.GetUninitializedObject(type);
+        type.GetField("ledgerDirectory", Private).SetValue(runtime, owner);
+        string ledger = (string)type.GetMethod("Ledger", Private).Invoke(runtime, new object[] { "fbA2" });
+        Check(Path.GetDirectoryName(ledger) == owner && Path.GetFileNameWithoutExtension(ledger).Length == 64, "Existing ownership path format changed.");
+        string run = (string)build.Invoke(null, new object[] { owner, new string('B', 32) });
+        Check(run == Path.Combine(working, "GeneratedModels", "Runs", new string('B', 32)), "Run folder still nests the ownership hash.");
+        foreach (string name in new[] { "TEMP-tags-backup.xml", "configuration-approval.template.xml", new string('C', 64) + "-generated.xml", new string('D', 64) + "-published.xml" })
+            Check(Path.Combine(run, name).Length < 260, "Normal output still exceeds the Openness path limit.");
+        string other = (string)build.Invoke(null, new object[] { owner, new string('E', 32) });
+        Check(run != other, "Run paths collide across executions.");
+        try
+        {
+            build.Invoke(null, new object[] { Path.Combine(working, new string('F', 80), "GeneratedModels", new string('A', 64)), new string('B', 32) });
+            throw new Exception("Overlong export path was accepted.");
+        }
+        catch (TargetInvocationException error)
+        { Check(error.InnerException is InvalidOperationException && error.InnerException.Message.Contains("shorter generator working directory"), "Overlong path lacks actionable context."); }
+    }
+    static void LibraryPinTypes()
+    {
+        var type = typeof(PlcProject).Assembly.GetType("TIA_LIB.Generation.ModularGenerationRuntime");
+        var match = type.GetMethod("LibraryPinTypeMatches", BindingFlags.Static | BindingFlags.NonPublic);
+        Func<string, string, string, bool> compatible = (actual, generated, direction) => (bool)match.Invoke(null, new object[] { actual, generated, direction });
+        Check(compatible("String[10]", "String", "Input"), "Real fbMonAn.UNIT String[10] rejected generic String call marker.");
+        Check(compatible("string[254]", "STRING", "Input") && compatible("UInt", "Uint", "Input") && compatible("\"typeAnalogCfg\"", "typeAnalogCfg", "Input"), "Valid existing pin spelling/representation rejected.");
+        foreach (string invalid in new[] { "WString[10]", "Bool", "String[0]", "String[255]", "String[]", "String[10]extra", "Array[1..10] of Char" })
+            Check(!compatible(invalid, "String", "Input"), "Invalid string contract accepted: " + invalid);
+        Check(!compatible("String[10]", "String", "InOut") && !compatible("String[10]", "String", "Output") &&
+            !compatible("String[10]", "String[20]", "Input") && !compatible(null, "String", "Input"), "Explicit capacity/direction/missing-pin mismatch accepted.");
+    }
     static void EmptyAndPidOnly()
     {
         foreach (SignalStagingMode mode in Enum.GetValues(typeof(SignalStagingMode)))
@@ -189,6 +225,8 @@ public static class ModularControlRoutingTests
         {
             Directory.SetCurrentDirectory(Path.Combine(root, "TIAOpenness/TIA_Lib/TIA_LIB"));
             RuntimeDependencies();
+            RuntimePaths();
+            LibraryPinTypes();
             EmptyAndPidOnly();
             StandaloneHelpers();
             OperandTransitions();
@@ -349,7 +387,14 @@ public static class ModularControlRoutingTests
                 Check(System.Text.RegularExpressions.Regex.Replace(GeneratedNetworkModelTests.ReadStructuredText(structured), @"\s+", "") ==
                     System.Text.RegularExpressions.Regex.Replace(groupedBody.RenderScl(), @"\s+", ""), "Seven-family SCL token/source parity differs.");
                 foreach (var groupedNetwork in groupedBody.RenderFbd())
-                    Check(groupedNetwork.Descendants("Text").Any(t => t.Value.StartsWith("[ETU group: Devices/")), "Missing FBD group presentation.");
+                    Check(!groupedNetwork.Descendants("Text").Any(t => t.Value.Contains("[ETU group: Devices/")), "Unwanted FBD group comment was generated.");
+                var legacy = logicalDevices[0].Body.RenderFbd();
+                foreach (var text in legacy.Descendants("MultilingualText").Single(e => (string)e.Attribute("CompositionName") == "Comment").Descendants("Text"))
+                    text.Value = "[ETU group: Devices/Analog_Sensors]\nKeep commissioning note";
+                var legacyModel = GeneratedNetworkModel.FromGeneratedFbd("LegacyHeader", "Original device title", legacy,
+                    new[] { "fbMonAn", "fbMonDi", "fbVlv2Out", "fbVlvCtrl", "fbMotS", "fbMotAn", "fbPIDCtrl", "fbIntlck7" });
+                var cleaned = new GeneratedBlockBody(new[] { new GeneratedLogicalNetwork(legacyModel, DeviceCategory.Analog_Sensors) }).RenderFbd().Single();
+                Check(cleaned.Descendants("MultilingualText").Single(e => (string)e.Attribute("CompositionName") == "Comment").Descendants("Text").All(t => t.Value == "Keep commissioning note"), "Removing the generated header damaged existing comments.");
                 foreach (var sourceBlock in new XmlBlock[] { unit, op, op2 })
                 {
                     var rendered = Render(sourceBlock);

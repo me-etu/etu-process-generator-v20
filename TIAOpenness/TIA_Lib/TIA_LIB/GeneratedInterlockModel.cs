@@ -11,7 +11,9 @@ namespace TIA_LIB.Generation
         static IEnumerable<GeneratedRegion> CreateRegions(OperationInterlockDescriptor descriptor)
         {
             if (descriptor.Phases.Count == 0) yield break;
-            yield return new GeneratedRegion("Function", new GeneratedStatement[0]);
+            yield return new GeneratedRegion("Function", new GeneratedStatement[0], new[] {
+                "here all interlocks for this operation will be defined",
+                "Later FALSE assignments execute every scan. Adjust them when adding calculated interlocks." });
             yield return Group("General Interlocks", descriptor.BoolMembers.Take(50));
             for (int index = 0; index < descriptor.Phases.Count; index++)
                 yield return Group(descriptor.Phases[index] + " Interlocks", descriptor.BoolMembers.Skip(50 + index * 50).Take(50));

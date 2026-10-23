@@ -46,12 +46,43 @@ namespace TIA_LIB.Generation
         {
             if (value.Kind == GeneratedExpressionKind.Symbol || value.Kind == GeneratedExpressionKind.Bit || value.Kind == GeneratedExpressionKind.Literal)
             { Wire(Ident(Access(value)), Pin(destination, pin)); return; }
-            bool negated = value.Kind == GeneratedExpressionKind.Not;
-            if (negated)
+            if (value.Kind == GeneratedExpressionKind.Not)
             {
-                var target = parts.Elements().Single(e => (int)e.Attribute("UId") == destination);
-                target.Add(Node("Negated", new XAttribute("Name", pin)));
-                Input(destination, pin, value.Operands[0]); return;
+                var operand = value.Operands[0];
+                if (operand.Kind == GeneratedExpressionKind.And || operand.Kind == GeneratedExpressionKind.Or)
+                {
+                    // TIA rejects input inversion on a gate-to-gate connection.
+                    // Push it through the expression using De Morgan's law.
+                    Input(destination, pin, GeneratedExpression.Boolean(operand.Kind == GeneratedExpressionKind.And ? GeneratedExpressionKind.Or : GeneratedExpressionKind.And,
+                        operand.Operands.Select(o => GeneratedExpression.Boolean(GeneratedExpressionKind.Not, o)).ToArray()));
+                }
+                else if (operand.Kind == GeneratedExpressionKind.Equal || operand.Kind == GeneratedExpressionKind.NotEqual)
+                    Input(destination, pin, GeneratedExpression.Compare(operand.Kind != GeneratedExpressionKind.Equal, operand.Datatype, operand.Operands[0], operand.Operands[1]));
+                else if (operand.Kind == GeneratedExpressionKind.Literal)
+                {
+                    if (operand.Literal != "TRUE" && operand.Literal != "FALSE") throw new InvalidOperationException("Expected a Bool literal under FBD NOT.");
+                    Input(destination, pin, GeneratedExpression.Constant("Bool", operand.Literal == "TRUE" ? "FALSE" : "TRUE"));
+                }
+                else if (operand.Kind == GeneratedExpressionKind.Symbol || operand.Kind == GeneratedExpressionKind.Bit)
+                {
+                    var target = parts.Elements().Single(e => (int)e.Attribute("UId") == destination);
+                    if (target.Name.LocalName == "Part" && ((string)target.Attribute("Name") == "A" || (string)target.Attribute("Name") == "O") && pin.StartsWith("in", StringComparison.Ordinal))
+                    {
+                        target.Add(Node("Negated", new XAttribute("Name", pin)));
+                        Input(destination, pin, operand);
+                    }
+                    else
+                    {
+                        // Coils/enables/call pins receive a positive gate output;
+                        // the inversion belongs to the direct symbolic operand.
+                        int inverter = Part("A", Template("Card", "Cardinality", "2"), Node("Negated", new XAttribute("Name", "in1")));
+                        Input(inverter, "in1", operand);
+                        Input(inverter, "in2", GeneratedExpression.Constant("Bool", "TRUE"));
+                        Wire(Pin(inverter, "out"), Pin(destination, pin));
+                    }
+                }
+                else throw new InvalidOperationException("Unsupported FBD NOT operand " + operand.Kind + ".");
+                return;
             }
             string instruction;
             object[] templates;
@@ -96,7 +127,10 @@ namespace TIA_LIB.Generation
                 }
                 else
                 {
-                    int move = Part("Move", Template("Card", "Cardinality", "1"), Template("Type", "Type", assignment.Destination.Datatype));
+                    // MOVE infers operand types from its typed connections. Unlike
+                    // comparison instructions it has no Type template parameter;
+                    // Openness rejects that parameter even though the XSD allows it.
+                    int move = Part("Move", Template("Card", "Cardinality", "1"));
                     Input(move, "in", value);
                     if (statement.Condition == null) Wire(Node("Powerrail"), Pin(move, "en"));
                     else Input(move, "en", statement.Condition);
@@ -133,7 +167,10 @@ namespace TIA_LIB.Generation
             var graph = Node("FlgNet", parts);
             if (wires.HasElements) graph.Add(wires);
             return new XElement("SW.Blocks.CompileUnit", new XAttribute("ID", index.ToString("X")), new XAttribute("CompositionName", "CompileUnits"),
-                new XElement("AttributeList", new XElement("NetworkSource", graph), new XElement("ProgrammingLanguage", "FBD")),
+                // A presentation-only network uses the same empty NetworkSource as
+                // EmptyNetworkWithOutCall.xml. TIA rejects FlgNet containing Parts
+                // but no executable graph, even though that shape passes the XSD.
+                new XElement("AttributeList", new XElement("NetworkSource", statement == null ? null : graph), new XElement("ProgrammingLanguage", "FBD")),
                 new XElement("ObjectList", Presentation("1", "Title", region.Title), Presentation("2", "Comment", "[ETU region: " + path + "]")));
         }
         void Region(GeneratedRegion region, string prefix, List<XElement> result)

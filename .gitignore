@@ -53,3 +53,6 @@ Specs/
 
 # Local generation ownership ledgers, PLC backups and commissioning-value snapshots
 GeneratedModels/
+
+# Automatic generator execution failure reports
+GenerationErrors/

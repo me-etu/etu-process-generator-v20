@@ -22,6 +22,7 @@ namespace TIA_LIB.Generation
         readonly string context, ledgerDirectory;
         readonly List<Artifact> artifacts = new List<Artifact>();
         readonly Dictionary<XmlBlock, XElement> shadows = new Dictionary<XmlBlock, XElement>();
+        readonly HashSet<string> preparedInstances = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         string runDirectory, preparedHash;
         bool prepared, uploaded, preparationFailed;
         Dictionary<string, PlcBlock> blocks;
@@ -45,6 +46,7 @@ namespace TIA_LIB.Generation
                 throw new InvalidOperationException("Modular generation needs a saved project path and an unambiguous selected PLC identity for its ownership ledger.");
             context = portal.OpenProject.Path.FullName + "|" + portal.GeneratorCpuIdentity;
             ledgerDirectory = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedModels", Hash(context));
+            ExportCompatiblePath(Path.Combine(ledgerDirectory, new string('A', 64) + ".xml"));
             // A model belongs to one selected project/CPU execution. Reusing the process
             // must not import cached blocks or helper instances from an earlier project.
             XmlBlock.Blocks = new List<XmlBlock>(); XmlUdt.Udts = new List<XmlUdt>(); XmlDatablock.Datablocks = new List<XmlDatablock>();
@@ -55,7 +57,25 @@ namespace TIA_LIB.Generation
         {
             using (var sha = SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(value))).Replace("-", "");
         }
-        string Ledger(string name) { return Path.Combine(ledgerDirectory, Hash(name) + ".xml"); }
+        string Ledger(string name) { return ExportCompatiblePath(Path.Combine(ledgerDirectory, Hash(name) + ".xml")); }
+        static string ExportCompatiblePath(string file)
+        {
+            // Openness uses classic Windows file APIs even when .NET can write a
+            // longer path. Reject before export rather than relying on OS settings.
+            if (Path.GetFullPath(file).Length >= 260)
+                throw new InvalidOperationException("Generation file path exceeds the Openness 259-character limit: " + file +
+                    ". Use a shorter generator working directory; keep its GeneratedModels ownership records with it.");
+            return file;
+        }
+        internal static string BuildRunDirectory(string ownershipDirectory, string runId)
+        {
+            // Keep ledgers at their existing project/CPU path. Run folders are
+            // siblings of that hash directory: nesting two hashes and a timestamp
+            // exceeded MAX_PATH in the normal bin/Debug location.
+            string directory = Path.Combine(Path.GetDirectoryName(ownershipDirectory), "Runs", runId);
+            ExportCompatiblePath(Path.Combine(directory, new string('A', 64) + "-generated.xml"));
+            return directory;
+        }
         string Owner(string name) { return context + "|" + name; }
         bool OwnsType(string name)
         {
@@ -100,7 +120,7 @@ namespace TIA_LIB.Generation
                 var record = XElement.Load(ledger);
                 if ((string)record.Attribute("Staging") != PlcProject.StagingMode.ToString())
                     throw new InvalidOperationException("Existing modular block '" + name + "' uses a different/unrecorded hardware staging mode. Reconcile its IO mappings explicitly before changing modes.");
-                return ManagedArtifactOwnership.Read(record).Restore(Owner(name), SelectedLanguage, exported);
+                return RestoreOwnedBlock(block, name, ManagedArtifactOwnership.Read(record), exported);
             }
             string language = (string)exported.Element("SW.Blocks.FB")?.Element("AttributeList")?.Element("ProgrammingLanguage");
             if (language == "FBD") return exported; // Inventory only; preflight will refuse unowned replacement.
@@ -112,12 +132,23 @@ namespace TIA_LIB.Generation
             throw new InvalidOperationException("Existing block '" + name + "' is not owned by modular generation. Backup/reconciliation details: " + directory + ". Preserve its logic and reconcile it explicitly, or use a fresh Unit/operation name.");
         }
         string SelectedLanguage { get { return PlcProject.Language == GenerationLanguage.Scl ? "SCL" : "FBD"; } }
+        string BlockLanguage(XmlBlock block) { return block is XmlPhase || block is XmlInterlock ? "SCL" : SelectedLanguage; }
+        XElement RestoreOwnedBlock(XmlBlock block, string name, ManagedArtifactOwnership ownership, XElement exported)
+        {
+            // Explicit user amendment converts only unchanged, generator-owned FBD
+            // interlocks to SCL. Verify the OLD exported language/fingerprint before
+            // restoring its editable shadow. Manual/unowned bodies remain protected.
+            string recordedLanguage = block is XmlInterlock && ownership.Language == "FBD" ? "FBD" : BlockLanguage(block);
+            return ownership.Restore(Owner(name), recordedLanguage, exported);
+        }
         string NewRunDirectory()
         {
             if (runDirectory == null)
             {
-                runDirectory = Path.Combine(ledgerDirectory, "Runs", DateTime.UtcNow.ToString("yyyyMMddTHHmmssfffffff") + "-" + Guid.NewGuid().ToString("N"));
+                runDirectory = BuildRunDirectory(ledgerDirectory, Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(runDirectory);
+                new XElement("GenerationRun", new XAttribute("Context", context), new XAttribute("Language", SelectedLanguage), new XAttribute("PhaseLanguage", "SCL"), new XAttribute("InterlockLanguage", "SCL"),
+                    new XAttribute("Staging", PlcProject.StagingMode)).Save(Path.Combine(runDirectory, "context.xml"));
             }
             return runDirectory;
         }
@@ -196,19 +227,26 @@ namespace TIA_LIB.Generation
             var body = rendered.Element("SW.Blocks.FB");
             var list = body.Element("ObjectList");
             var oldBodies = list.Elements("SW.Blocks.CompileUnit").ToArray();
-            IEnumerable<XElement> networks;
-            GeneratedStructuredBody structured = null;
             if (block is XmlPhase)
             {
-                GeneratedPhaseModel.ValidateFreshTemplate(shadow);
-                structured = new GeneratedPhaseModel();
+                // The phase is a user-editable SCL scaffold, even in FBD mode.
+                // Keep the audited source and its full IF/CASE/placeholder structure.
+                var original = GeneratedPhaseModel.PreserveCompileUnit(shadow);
+                foreach (var old in oldBodies) old.Remove();
+                list.Add(original);
+                body.Element("AttributeList").Element("ProgrammingLanguage").Value = "SCL";
+                NormalizeObjectIds(rendered);
+                block.PruneUnsupportedMultilingualTextItems(rendered);
+                block.PruneUnsupportedMultilingualTextItems(shadow);
+                return rendered;
             }
-            else if (block is XmlInterlock)
+            IEnumerable<XElement> networks;
+            GeneratedStructuredBody structured = null;
+            if (block is XmlInterlock)
                 structured = new GeneratedInterlockModel(((XmlInterlock)block).FinalizedDescriptor());
             if (structured != null)
             {
-                if (SelectedLanguage == "FBD") networks = new PhaseFbdRenderer().Render(structured);
-                else networks = new[] { SclNetwork(new StructuredTextBodyRenderer().Render(structured)) };
+                networks = new[] { SclNetwork(new StructuredTextBodyRenderer().Render(structured)) };
                 if (block is XmlInterlock)
                 {
                     // Interlock templates have no initial compile units. Persist a real
@@ -241,7 +279,7 @@ namespace TIA_LIB.Generation
                 networks = SelectedLanguage == "FBD" ? (IEnumerable<XElement>)plan.RenderFbd() : new[] { SclNetwork(new StructuredTextBodyRenderer().Render(plan)) };
             }
             foreach (var old in oldBodies) old.Remove();
-            list.Add(networks); body.Element("AttributeList").Element("ProgrammingLanguage").Value = SelectedLanguage;
+            list.Add(networks); body.Element("AttributeList").Element("ProgrammingLanguage").Value = BlockLanguage(block);
             NormalizeObjectIds(rendered);
             block.PruneUnsupportedMultilingualTextItems(rendered);
             block.PruneUnsupportedMultilingualTextItems(shadow);
@@ -435,14 +473,16 @@ namespace TIA_LIB.Generation
             var ordered = ArtifactSchedule.Order(artifacts.Select(a => new ArtifactDependency(a.Id, a.Requires.ToArray())));
             var byId = artifacts.ToDictionary(a => a.Id);
             var sorted = ordered.Select(a => byId[a.Identity]).ToArray(); artifacts.Clear(); artifacts.AddRange(sorted);
-            var plan = new XElement("ModularGeneration", new XAttribute("Context", context), new XAttribute("Language", SelectedLanguage), new XAttribute("Staging", PlcProject.StagingMode),
+            var plan = new XElement("ModularGeneration", new XAttribute("Context", context), new XAttribute("Language", SelectedLanguage), new XAttribute("PhaseLanguage", "SCL"), new XAttribute("InterlockLanguage", "SCL"), new XAttribute("Staging", PlcProject.StagingMode),
                 new XElement("OnlineActualValues", "Not captured; no download is performed."));
             foreach (var artifact in artifacts)
             {
                 if (artifact.Document != null) artifact.Document.Save(Path.Combine(runDirectory, Hash(artifact.Id) + "-generated.xml"));
                 plan.Add(new XElement("Artifact", new XAttribute("Id", artifact.Id), new XAttribute("Existing", artifact.Existing != null),
                     new XAttribute("Folder", artifact.GroupPath == null ? "PLC data types" : string.Join("/", artifact.GroupPath)),
-                    artifact.Requires.OrderBy(r => r, StringComparer.Ordinal).Select(r => new XElement("Requires", r))));
+                    artifact.Requires.OrderBy(r => r, StringComparer.Ordinal).Select(r => new XElement("Requires", r)),
+                    artifacts.Where(a => a.Kind == "instance" && string.Equals(a.InstanceOf, artifact.Name, StringComparison.OrdinalIgnoreCase))
+                        .Select(a => new XElement("PrepareBeforeOwnershipExport", a.Id))));
             }
             plan.Save(Path.Combine(runDirectory, "plan.xml"));
             prepared = true; preparedHash = ModelHash();
@@ -495,10 +535,23 @@ namespace TIA_LIB.Generation
                 else if (artifact.Block != null && !(artifact.Block is XmlPlant))
                 {
                     if (!File.Exists(Ledger(artifact.Name))) throw new InvalidOperationException("Existing block '" + artifact.Name + "' has no managed ownership. Preserve its manual logic and review backup " + runDirectory + ". No automatic adoption/conversion.");
-                    ManagedArtifactOwnership.Read(XElement.Load(Ledger(artifact.Name))).Restore(Owner(artifact.Name), SelectedLanguage, artifact.Existing);
+                    RestoreOwnedBlock(artifact.Block, artifact.Name, ManagedArtifactOwnership.Read(XElement.Load(Ledger(artifact.Name))), artifact.Existing);
                 }
             }
             ValidateLibraryContracts();
+        }
+        internal static bool LibraryPinTypeMatches(string declared, string generated, string section)
+        {
+            if (declared == null || generated == null) return false;
+            declared = declared.Trim().Trim('"'); generated = generated.Trim().Trim('"');
+            if (string.Equals(declared, generated, StringComparison.OrdinalIgnoreCase)) return true;
+            // CallInfo uses the String family marker for a string input operand;
+            // the FB declaration owns its capacity (e.g. fbMonAn.UNIT String[10]).
+            // This is not an InOut type-equivalence rule or a String/WString cast.
+            if (section != "Input" || !string.Equals(generated, "String", StringComparison.OrdinalIgnoreCase) ||
+                !declared.StartsWith("String[", StringComparison.OrdinalIgnoreCase) || !declared.EndsWith("]", StringComparison.Ordinal)) return false;
+            int capacity;
+            return int.TryParse(declared.Substring(7, declared.Length - 8), out capacity) && capacity >= 1 && capacity <= 254;
         }
         void ValidateLibraryContracts()
         {
@@ -512,8 +565,9 @@ namespace TIA_LIB.Generation
                 foreach (var parameter in call.Parameters.Values.Where(p => !string.Equals(p.Name, "EN", StringComparison.OrdinalIgnoreCase)))
                 {
                     var pin = sections.Elements().Where(s => (string)s.Attribute("Name") == parameter.Section).SelectMany(s => s.Elements()).SingleOrDefault(m => (string)m.Attribute("Name") == parameter.Name);
-                    if (pin == null || !string.Equals(((string)pin.Attribute("Datatype"))?.Trim('"'), parameter.Type.Trim('"'), StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidOperationException("Library pin contract differs: " + call.BlockName + "." + parameter.Section + "." + parameter.Name + " : " + parameter.Type + ".");
+                    if (pin == null || !LibraryPinTypeMatches((string)pin.Attribute("Datatype"), parameter.Type, parameter.Section))
+                        throw new InvalidOperationException("Library pin contract differs: " + call.BlockName + "." + parameter.Section + "." + parameter.Name +
+                            ": generated call type " + parameter.Type + ", library type " + ((string)pin?.Attribute("Datatype") ?? "<missing pin/direction>") + ".");
                 }
             }
             foreach (string name in new[] { "HMI", "F_Safe" })
@@ -525,20 +579,18 @@ namespace TIA_LIB.Generation
                     if (!section?.Elements().Any(m => (string)m.Attribute("Name") == member && (string)m.Attribute("Datatype") == "Bool") ?? true)
                         throw new InvalidOperationException("Required existing global Bool is missing: " + name + "." + member + ". The generator does not create it.");
             }
-            // Phase helper/type dependencies are external definitions. No SCL fallback.
+            // Phases preserve the original SCL template in both selected modes.
             if (shadows.Keys.OfType<XmlPhase>().Any())
             {
                 foreach (string name in new[] { "fbOpMsg", "fbTransfer", "fbTimer" })
                     if (ExportBlock(name) == null) throw new InvalidOperationException("Missing phase helper dependency " + name + ".");
-                foreach (var statement in new GeneratedPhaseModel().Regions.SelectMany(Flatten).SelectMany(r => r.Statements).Where(s => s.Call != null && !s.Instruction))
+                foreach (var required in GeneratedPhaseModel.RequiredPins)
                 {
-                    var sections = ExportBlock(statement.Call.BlockType).Descendants().First(e => e.Name.LocalName == "Sections");
-                    foreach (var argument in statement.Call.Arguments)
-                    {
-                        var pin = sections.Elements().Where(s => (string)s.Attribute("Name") == argument.Direction.ToString()).SelectMany(s => s.Elements()).SingleOrDefault(m => (string)m.Attribute("Name") == argument.Name);
-                        if (pin == null || !string.Equals(((string)pin.Attribute("Datatype"))?.Trim('"'), argument.Datatype, StringComparison.OrdinalIgnoreCase))
-                            throw new InvalidOperationException("Phase helper pin contract differs: " + statement.Call.BlockType + "." + argument.Name + " : " + argument.Datatype);
-                    }
+                    var sections = ExportBlock(required.Block).Descendants().First(e => e.Name.LocalName == "Sections");
+                    var pin = sections.Elements().Where(s => (string)s.Attribute("Name") == "Input").SelectMany(s => s.Elements()).SingleOrDefault(m => (string)m.Attribute("Name") == required.Name);
+                    if (pin == null || !LibraryPinTypeMatches((string)pin.Attribute("Datatype"), required.Datatype, "Input"))
+                        throw new InvalidOperationException("Phase helper pin contract differs: " + required.Block + "." + required.Name +
+                            ": template call type " + required.Datatype + ", library type " + ((string)pin?.Attribute("Datatype") ?? "<missing pin/direction>") + ".");
                 }
                 if (ExportType("AlarmBlock") == null) throw new InvalidOperationException("Missing phase AlarmBlock configuration type.");
             }
@@ -550,11 +602,6 @@ namespace TIA_LIB.Generation
                     throw new InvalidOperationException("Missing configuration type dependency " + datatype + ".");
             }
         }
-        static IEnumerable<GeneratedRegion> Flatten(GeneratedRegion region)
-        {
-            yield return region;
-            foreach (var child in region.Children) foreach (var descendant in Flatten(child)) yield return descendant;
-        }
         static void AppendMessages(IEnumerable<CompilerResultMessage> messages, StringBuilder diagnostics)
         {
             foreach (var message in messages)
@@ -563,11 +610,54 @@ namespace TIA_LIB.Generation
                 AppendMessages(message.Messages, diagnostics);
             }
         }
-        static void Compile(PlcBlock block, StringBuilder diagnostics)
+        static void AppendBlockState(PlcBlock block, StringBuilder diagnostics, string stage)
         {
+            diagnostics.AppendLine("Block state (" + stage + "):");
+            if (block == null) { diagnostics.AppendLine("  Block not found."); return; }
+            // Read independently: a stale/unavailable attribute must not hide the
+            // compiler exception or prevent the remaining diagnostic evidence.
+            var attributes = new Dictionary<string, Func<object>> {
+                { "Name", () => block.Name },
+                { "ProgrammingLanguage", () => block.ProgrammingLanguage },
+                { "IsConsistent", () => block.IsConsistent },
+                { "CompileDate", () => block.CompileDate },
+                { "CodeModifiedDate", () => block.CodeModifiedDate },
+                { "InterfaceModifiedDate", () => block.InterfaceModifiedDate },
+                { "ModifiedDate", () => block.ModifiedDate },
+                { "ParameterModified", () => block.ParameterModified },
+                { "StructureModified", () => block.StructureModified }
+            };
+            foreach (var attribute in attributes)
+            {
+                try
+                {
+                    object value = attribute.Value();
+                    diagnostics.AppendLine("  " + attribute.Key + "=" + (value is DateTime ? ((DateTime)value).ToString("O") : Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)));
+                }
+                catch (Exception error) { diagnostics.AppendLine("  " + attribute.Key + " unavailable: " + error.Message); }
+            }
+        }
+        static void CompileDefinition(PlcBlock block, StringBuilder diagnostics)
+        {
+            AppendBlockState(block, diagnostics, "before compile");
             var result = block.GetService<ICompilable>().Compile();
             AppendMessages(result.Messages, diagnostics);
+            AppendBlockState(block, diagnostics, "after compile");
+            diagnostics.AppendLine("Block compile " + block.Name + ": " + result.ErrorCount + " errors, " + result.WarningCount + " warnings; consistent=" + block.IsConsistent + ".");
             if (result.ErrorCount != 0 || result.State == CompilerResultState.Error) throw new InvalidOperationException("PLC compilation failed for " + block.Name + ".");
+        }
+        static void Compile(PlcBlock block, StringBuilder diagnostics)
+        {
+            ArtifactBatchExecution.CompileUntilConsistent(() => CompileDefinition(block, diagnostics), () => block.IsConsistent, block.Name,
+                () => {
+                    diagnostics.AppendLine("Block compilation succeeded but consistency is still false. Compiling PLC software once to reconcile dependencies for " + block.Name + ".");
+                    var result = SiemensPortal.Current.PlcSoftware.GetService<ICompilable>().Compile();
+                    AppendMessages(result.Messages, diagnostics);
+                    diagnostics.AppendLine("PLC software compile: " + result.ErrorCount + " errors, " + result.WarningCount + " warnings.");
+                    AppendBlockState(block, diagnostics, "after PLC software compile");
+                    if (result.ErrorCount != 0 || result.State == CompilerResultState.Error)
+                        throw new InvalidOperationException("PLC software compilation failed while reconciling dependencies for " + block.Name + ".");
+                });
         }
         internal void Upload()
         {
@@ -651,9 +741,48 @@ namespace TIA_LIB.Generation
                 if (artifact.Block != null) artifact.Block.UserGroup = artifact.Group;
             }
         }
+        void PrepareInstance(Artifact artifact, StringBuilder log)
+        {
+            if (preparedInstances.Contains(artifact.Id)) return;
+            log.AppendLine("Prepare companion " + artifact.Id + " for " + artifact.InstanceOf);
+            var current = artifact.Group.Blocks.Find(artifact.Name);
+            if (current == null) artifact.Group.Blocks.CreateInstanceDB(artifact.Name, true, 1, artifact.InstanceOf);
+            else
+            {
+                if (artifact.Existing == null) throw new InvalidOperationException("Instance DB appeared during generation without a preflight backup: " + artifact.Name + ". Preserve it and reconcile before continuing.");
+                // Reuse the preflight backup, preserving offline commissioning
+                // overrides. Never recreate an existing instance or infer online data.
+                string file = Path.Combine(runDirectory, Hash(artifact.Id) + "-generated.xml");
+                artifact.Existing.Save(file); artifact.Group.Blocks.Import(new FileInfo(file), ImportOptions.Override);
+            }
+            Compile(artifact.Group.Blocks.Find(artifact.Name), log);
+            preparedInstances.Add(artifact.Id);
+        }
+        void CaptureFailedBlock(Artifact artifact, StringBuilder log)
+        {
+            if (artifact.Kind == "type") return;
+            // Diagnostic reads/export only. Do not change, compile or adopt the
+            // target here, and never replace the original generation exception.
+            try
+            {
+                var current = artifact.Group?.Blocks.Find(artifact.Name);
+                AppendBlockState(current, log, "fresh lookup after failure for " + artifact.Id);
+                foreach (var instance in artifacts.Where(a => a.Kind == "instance" && string.Equals(a.InstanceOf, artifact.Name, StringComparison.OrdinalIgnoreCase)))
+                    AppendBlockState(instance.Group?.Blocks.Find(instance.Name), log, "companion " + instance.Id);
+                if (current == null) return;
+                string file = ExportCompatiblePath(Path.Combine(runDirectory, Hash(artifact.Id) + "-failed.xml"));
+                current.Export(new FileInfo(file), ExportOptions.WithDefaults);
+                log.AppendLine("Current target XML after failure: " + file);
+            }
+            catch (Exception error)
+            {
+                // Inconsistent blocks may refuse XML export. Keep that refusal
+                // alongside timestamps instead of claiming a snapshot was saved.
+                log.AppendLine("Failure diagnostic lookup/XML export unavailable: " + error);
+            }
+        }
         void Import(Artifact artifact, StringBuilder log)
         {
-            var currentBlock = artifact.Kind == "instance" ? artifact.Group.Blocks.Find(artifact.Name) : null;
             {
                 try
                 {
@@ -671,30 +800,34 @@ namespace TIA_LIB.Generation
                     }
                     else if (artifact.Kind == "instance")
                     {
-                        if (currentBlock == null) artifact.Group.Blocks.CreateInstanceDB(artifact.Name, true, 1, artifact.InstanceOf);
-                        else
-                        {
-                            // Preserve existing offline instance overrides when the FB's
-                            // generated interface grows. No online values are inferred.
-                            artifact.Existing.Save(file); artifact.Group.Blocks.Import(new FileInfo(file), ImportOptions.Override);
-                        }
-                        Compile(artifact.Group.Blocks.Find(artifact.Name), log);
+                        PrepareInstance(artifact, log);
                     }
                     else
                     {
                         artifact.Group.Blocks.Import(new FileInfo(file), ImportOptions.Override);
-                        var imported = artifact.Group.Blocks.Find(artifact.Name); Compile(imported, log);
-                        if (artifact.Block != null && !(artifact.Block is XmlPlant))
-                        {
-                            string export = Path.Combine(runDirectory, Hash(artifact.Id) + "-published.xml"); imported.Export(new FileInfo(export), ExportOptions.WithDefaults);
-                            var ownership = ManagedArtifactOwnership.Capture(Owner(artifact.Name), SelectedLanguage, XElement.Load(export), shadows[artifact.Block]).ToXml();
-                            ownership.SetAttributeValue("Staging", PlcProject.StagingMode); ownership.Save(Ledger(artifact.Name));
-                        }
+                        var imported = artifact.Group.Blocks.Find(artifact.Name);
+                        var companions = artifacts.Where(a => a.Kind == "instance" && string.Equals(a.InstanceOf, artifact.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
+                        ArtifactBatchExecution.PublishWithInstances(
+                            () => { if (companions.Length != 0) CompileDefinition(imported, log); },
+                            companions.Select<Artifact, Action>(instance => () => PrepareInstance(instance, log)),
+                            () => {
+                                Compile(imported, log);
+                                foreach (var instance in companions)
+                                    Compile(instance.Group.Blocks.Find(instance.Name), log);
+                                if (!imported.IsConsistent) throw new InvalidOperationException("PLC block '" + artifact.Name + "' is still inconsistent after preparing its companion instances. Review retained diagnostics before importing callers.");
+                                if (artifact.Block != null && !(artifact.Block is XmlPlant))
+                                {
+                                    string export = Path.Combine(runDirectory, Hash(artifact.Id) + "-published.xml"); imported.Export(new FileInfo(export), ExportOptions.WithDefaults);
+                                    var ownership = ManagedArtifactOwnership.Capture(Owner(artifact.Name), BlockLanguage(artifact.Block), XElement.Load(export), shadows[artifact.Block]).ToXml();
+                                    ownership.SetAttributeValue("Staging", PlcProject.StagingMode); ownership.Save(Ledger(artifact.Name));
+                                }
+                            });
                     }
                     File.WriteAllText(Path.Combine(runDirectory, "diagnostics.txt"), log.ToString());
                 }
                 catch (Exception error)
                 {
+                    CaptureFailedBlock(artifact, log);
                     log.AppendLine(error.ToString()); File.WriteAllText(Path.Combine(runDirectory, "diagnostics.txt"), log.ToString());
                     throw new InvalidOperationException("Modular generation stopped at " + artifact.Id + ". Dependent callers were not imported. Sources, backups and diagnostics: " + runDirectory, error);
                 }

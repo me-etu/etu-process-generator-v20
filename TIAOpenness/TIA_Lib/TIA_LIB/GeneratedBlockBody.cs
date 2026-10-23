@@ -77,18 +77,17 @@ namespace TIA_LIB.Generation
                 var xml = network.Body.RenderFbd();
                 if (network.Category.HasValue)
                 {
-                    string header = "[ETU group: Devices/" + network.Category.Value + "]";
                     var comment = xml.Descendants("MultilingualText").SingleOrDefault(e => (string)e.Attribute("CompositionName") == "Comment");
-                    if (comment == null || !comment.Descendants("Text").Any())
-                        throw new InvalidOperationException("Missing FBD presentation comment container for " + network.Body.Identity + ".");
-                    foreach (var text in comment.Descendants("Text"))
+                    foreach (var text in comment == null ? Enumerable.Empty<XElement>() : comment.Descendants("Text"))
                     {
                         string existing = text.Value;
                         int newline = existing.IndexOf('\n');
                         string firstLine = (newline < 0 ? existing : existing.Substring(0, newline)).TrimEnd('\r');
                         if (Enum.GetNames(typeof(DeviceCategory)).Any(c => firstLine == "[ETU group: Devices/" + c + "]"))
                             existing = newline < 0 ? "" : existing.Substring(newline + 1);
-                        text.Value = header + (existing.Length == 0 ? "" : Environment.NewLine + existing);
+                        // Titles already identify device networks. Remove only our
+                        // former structural header, preserving every other comment.
+                        text.Value = existing;
                     }
                 }
                 networks.Add(xml);

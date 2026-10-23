@@ -662,7 +662,7 @@ namespace TIA_LIB
 
             if (ModularGenerationRuntime.Current != null) ModularGenerationRuntime.Current.Prepare();
 
-            Console.WriteLine("Signal staging mode: Marker memory");
+            Console.WriteLine("Signal IOs generation style: Marker memory");
             var plc = SiemensPortal.Current.GetPlcSoftware();   //Aktuelle Instance aufrufen
             int countByte = 500;    //Merkeradresse für Valves
             int countBit = 0;

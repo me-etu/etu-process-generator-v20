@@ -31,6 +31,7 @@ public static class ModularGenerationPlanTests
             var output = new StringWriter();
             var selected = GenerationConfiguration.Select(new StringReader(answer), output);
             Check(selected == (answer.EndsWith("2") ? GenerationLanguage.Scl : GenerationLanguage.Fbd) && output.ToString().StartsWith("Select language for code generation:"), "General selector contract differs.");
+            Check(!output.ToString().Contains("(default)") && !output.ToString().Contains("Phase templates remain"), "Console includes removed annotations.");
         }
         var selection = new GenerationConfiguration();
         Check(selection.Language == GenerationLanguage.Fbd, "FBD is not the default.");
@@ -172,6 +173,58 @@ public static class ModularGenerationPlanTests
         Reject(() => ArtifactBatchExecution.Execute(artifacts, () => importTrace.Add("preflight"), id => {
             importTrace.Add(id); if (id == "Operation") throw new InvalidOperationException("import failed"); }), "import failed");
         Check(importTrace.SequenceEqual(new[] { "preflight", "Phase", "Interlocks", "Operation" }), "Dependent/unrelated callers imported after failure.");
-        Console.WriteLine("PASS: G-017 planning foundation: explicit control/config ownership, metadata copies, category scheduling hazards and dependency graph. Runtime adapters/renderers are not exercised.");
+        int passes = 0;
+        ArtifactBatchExecution.CompileUntilConsistent(() => passes++, () => passes == 1, "Stable");
+        Check(passes == 1, "Consistent block was needlessly compiled twice.");
+        passes = 0;
+        ArtifactBatchExecution.CompileUntilConsistent(() => passes++, () => passes == 2, "UpdatedCalls");
+        Check(passes == 2, "Updated FBD calls did not get their consistency compile pass.");
+        passes = 0;
+        Reject(() => ArtifactBatchExecution.CompileUntilConsistent(() => passes++, () => false, "StillInconsistent"), "remains inconsistent");
+        Check(passes == 2, "Inconsistent block was retried without bound.");
+        passes = 0;
+        Reject(() => ArtifactBatchExecution.CompileUntilConsistent(() => { passes++; throw new InvalidOperationException("real compile error"); }, () => true, "Invalid"), "real compile error");
+        Check(passes == 1, "Actual compiler failure was retried/hidden.");
+        int dependencyPasses = 0;
+        passes = 0;
+        ArtifactBatchExecution.CompileUntilConsistent(() => passes++, () => dependencyPasses == 1, "NeedsSoftwareCompile", () => dependencyPasses++);
+        Check(passes == 2 && dependencyPasses == 1, "Persistent zero-error block inconsistency did not receive exactly one dependency compile.");
+        passes = dependencyPasses = 0;
+        ArtifactBatchExecution.CompileUntilConsistent(() => passes++, () => true, "AlreadyConsistent", () => dependencyPasses++);
+        Check(passes == 1 && dependencyPasses == 0, "Consistent block needlessly compiled the PLC software.");
+        passes = dependencyPasses = 0;
+        Reject(() => ArtifactBatchExecution.CompileUntilConsistent(() => { passes++; throw new InvalidOperationException("block compile failed"); },
+            () => false, "BadBlock", () => dependencyPasses++), "block compile failed");
+        Check(passes == 1 && dependencyPasses == 0, "A real block compile failure incorrectly triggered dependency compilation.");
+        passes = dependencyPasses = 0;
+        Reject(() => ArtifactBatchExecution.CompileUntilConsistent(() => passes++, () => false, "BadDependencies",
+            () => { dependencyPasses++; throw new InvalidOperationException("software compile failed"); }), "software compile failed");
+        Check(passes == 2 && dependencyPasses == 1, "A failed dependency compile was hidden or retried.");
+        passes = dependencyPasses = 0;
+        Reject(() => ArtifactBatchExecution.CompileUntilConsistent(() => passes++, () => false, "StillNotExportable", () => dependencyPasses++), "remains inconsistent");
+        Check(passes == 2 && dependencyPasses == 1, "Persistent inconsistency bypassed the guard or retried without bound.");
+        var lifecycle = new System.Collections.Generic.List<string>();
+        bool instancePrepared = false, published = false;
+        var publicationGraph = new[] { new ArtifactDependency("Plant", "Unit", "UnitDB"), new ArtifactDependency("UnitDB", "Unit"), new ArtifactDependency("Unit") };
+        ArtifactBatchExecution.Execute(publicationGraph, () => { }, id => {
+            if (id == "Unit") ArtifactBatchExecution.PublishWithInstances(
+                () => lifecycle.Add("check FB definition"),
+                new Action[] { () => { instancePrepared = true; lifecycle.Add("prepare instance DB"); } },
+                () => { Check(instancePrepared, "FB consistency/export checked before its instance DB exists."); published = true; lifecycle.Add("export consistent FB"); });
+            else if (id == "Plant") { Check(instancePrepared && published, "Plant imported before Unit/DB completion."); lifecycle.Add("import Plant call"); }
+        });
+        Check(lifecycle.SequenceEqual(new[] { "check FB definition", "prepare instance DB", "export consistent FB", "import Plant call" }), "FB/instance/ownership/Plant lifecycle differs.");
+        lifecycle.Clear();
+        Reject(() => ArtifactBatchExecution.Execute(publicationGraph, () => { }, id => {
+            if (id == "Unit") ArtifactBatchExecution.PublishWithInstances(() => lifecycle.Add("definition checked"),
+                new Action[] { () => { lifecycle.Add("instance failed"); throw new InvalidOperationException("instance failure"); } }, () => lifecycle.Add("unsafe export"));
+            else lifecycle.Add(id);
+        }), "instance failure");
+        Check(lifecycle.SequenceEqual(new[] { "definition checked", "instance failed" }), "Failed companion allowed export or Plant import.");
+        lifecycle.Clear();
+        Reject(() => ArtifactBatchExecution.PublishWithInstances(() => { throw new InvalidOperationException("definition failed"); },
+            new Action[] { () => lifecycle.Add("unsafe instance creation") }, () => lifecycle.Add("unsafe export")), "definition failed");
+        Check(lifecycle.Count == 0, "Invalid definition created an instance or exported ownership.");
+        Console.WriteLine("PASS: planning, dependency/failure gates, bounded consistency checks and FB/companion DB publication before Plant. No Portal execution.");
     }
 }

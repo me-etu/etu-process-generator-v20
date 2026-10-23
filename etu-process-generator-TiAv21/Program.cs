@@ -38,12 +38,18 @@ namespace EtuProcessGeneratorTiaV21
     
     public class Program: PlcProject
     {
-        static void Main(string[] args)
+        static int Main(string[] args)
+        {
+            return TIA_LIB.Generation.GenerationExecutionLog.Run("ETU generator V21", () => RunGeneration(args),
+                () => "Language=" + PlcProject.Language + "; Staging=" + PlcProject.StagingMode, pauseOnFailure: true);
+        }
+
+        static void RunGeneration(string[] args)
         {
             PlcProject.ConfigurationMigrationApprovalPath = TIA_LIB.Generation.GenerationConfiguration.MigrationApprovalArgument(args);
             PlcProject.Language = TIA_LIB.Generation.GenerationConfiguration.Select(Console.In, Console.Out);
             PlcProject.StagingMode = SelectSignalStagingMode();
-            Console.WriteLine("Signal staging mode: " + (PlcProject.StagingMode == SignalStagingMode.GeneratedDbUdt ? "Generated DB/UDT staging" : "Marker memory"));
+            Console.WriteLine("Signal IOs generation style: " + (PlcProject.StagingMode == SignalStagingMode.GeneratedDbUdt ? "Generated DB/UDT staging" : "Marker memory"));
 
             DeleteGeneratedOutput("Plant.xml");
 
@@ -118,9 +124,9 @@ namespace EtuProcessGeneratorTiaV21
         {
             while (true)
             {
-                Console.WriteLine("Select signal staging mode:");
-                Console.WriteLine("1. Marker memory (current default)");
-                Console.WriteLine("2. Generated DB/UDT staging (experimental)");
+                Console.WriteLine("Select signal IOs generation style:");
+                Console.WriteLine("1. Marker memory");
+                Console.WriteLine("2. Generated DB/UDT staging");
                 Console.WriteLine();
                 Console.Write("Choice [1]: ");
 

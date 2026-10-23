@@ -125,6 +125,7 @@ namespace TIA_LIB.Generation
         void GeneratedRegion(XElement destination, GeneratedRegion region)
         {
             Region(destination, region.Title);
+            foreach (string comment in region.Comments) destination.Add(Node("LineComment", new XAttribute("Inserted", "false"), new XAttribute("NoClosingBracket", "false"), Node("Text", " " + comment)), Line());
             foreach (var statement in region.Statements)
             {
                 if (statement.Assignment == null) { Invocation(destination, statement.Call, statement.Instruction); continue; }

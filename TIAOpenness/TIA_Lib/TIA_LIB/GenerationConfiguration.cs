@@ -64,7 +64,8 @@ namespace TIA_LIB.Generation
             while (true)
             {
                 output.WriteLine("Select language for code generation:");
-                output.WriteLine("1. FBD (default)"); output.WriteLine("2. SCL"); output.Write("Choice [1]: ");
+                output.WriteLine("1. FBD"); output.WriteLine("2. SCL");
+                output.Write("Choice [1]: ");
                 string choice = input.ReadLine();
                 if (string.IsNullOrWhiteSpace(choice) || choice.Trim() == "1") return GenerationLanguage.Fbd;
                 if (choice.Trim() == "2") return GenerationLanguage.Scl;

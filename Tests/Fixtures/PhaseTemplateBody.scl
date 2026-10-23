@@ -1,0 +1,157 @@
+	REGION COMMANDS
+	    #STOP := #InterfaceIn.%X12;
+	    #IDLE := #InterfaceIn.%X11;
+	    #HELD := #InterfaceIn.%X10;
+	    #START := #InterfaceIn.%X16;
+	    #ABORT := #InterfaceIn.%X14;
+	    #PAUSE := #InterfaceIn.%X13;
+	    #ABORTING := #InterfaceIn.%X21;
+	    #STARTING := #InterfaceIn.%X20;
+	    #STOPPING := #InterfaceIn.%X19;
+	END_REGION
+	REGION FUNCTION
+	    IF #START OR #PAUSE THEN
+	        
+	        //======================================================================================================================
+	        IF #STARTING THEN
+	            #step := 10;
+	            #count := 0;
+	
+	            #Message_1.SIG := false;
+	            #Message_2.SIG := false;
+	            #Message_3.SIG := false;
+	            #Message_4.SIG := false;
+	            #Message_5.SIG := false;
+	            
+	            #TRANSFER_READY := false;
+	            
+	        ELSIF #START THEN
+	            ;
+	        END_IF;
+	        
+	        //======================================================================================================================
+	        
+	        CASE #step OF
+	                
+	            10:  // =============================================================================================================
+	                REGION S10 -   
+	                    //Action
+	                    
+	                    //Next
+	                    IF false THEN
+	                        IF NOT #PAUSE THEN
+	                            #step += 10;
+	                        END_IF;
+	                    END_IF;
+	                END_REGION
+	                
+	            20:  // =============================================================================================================
+	                REGION S20 -   
+	                    //Action
+	                    
+	                    //Next
+	                    #COMPLETED := true;
+	                END_REGION
+	        END_CASE;
+	        
+	    ELSIF #STOP THEN
+	        IF #STOPPING THEN
+	            ;
+	        END_IF;
+	        #TRANSFER_READY := false;
+	    ELSIF #ABORT THEN
+	        #COMPLETED := false;
+	    END_IF;
+	
+	END_REGION
+	
+	REGION MESSAGES
+	    #Message_1();
+	    #Message_2();
+	    #Message_3();
+	    #Message_4();
+	    #Message_5();
+	END_REGION
+	
+	REGION OPERATOR REQUEST
+	    #OpRequest_1(MESSAGE := #START AND #step = -1,
+	                 TYPE := 0);
+	    
+	    #OpRequest_2(MESSAGE := #START AND #step = -1,
+	                 TYPE := 0);
+	    
+	    #OpRequest_3(MESSAGE := #START AND #step = -1,
+	                 TYPE := 0);
+	    
+	    #OpRequest_4(MESSAGE := #START AND #step = -1,
+	                 TYPE := 0);
+	    
+	    #OpRequest_5(MESSAGE := #START AND #step = -1,
+	                 TYPE := 0);
+	    
+	END_REGION
+	
+	REGION TRANSFER
+	    #TRANSFER(BIT_READY:=#TRANSFER_READY AND NOT #HELD);
+	    
+	    IF #TRANSFER.ACTIVE THEN
+	        ;
+	    ELSIF #TRANSFER.READY OR #TRANSFER.HELD OR #TRANSFER.COMPLETED THEN
+	        ;
+	    END_IF;
+	END_REGION
+	
+	REGION TIMER
+	    IF NOT #START OR #START AND #step <> #step_prev THEN
+	        #timer.Start := false;
+	    END_IF;
+	    
+	    #timer();
+	END_REGION
+	
+	REGION STATUS
+	    IF FALSE THEN
+	        #InterfaceOut.%X24 := true;
+	    ELSE
+	        #InterfaceOut.%X24 := false;
+	    END_IF;
+	    
+	    #InterfaceOut.%X22 := #COMPLETED;
+	    #InterfaceOut.%X23 := #STOP OR #IDLE;
+	    #InterfaceOut.%X25 := #OpRequest_1.Interface = -1 OR #OpRequest_2.Interface = -1 OR #OpRequest_3.Interface = -1 OR #OpRequest_4.Interface = -1 OR #OpRequest_5.Interface = -1;
+	    
+	    #AlarmBlock(SIG := #HELD,
+	                SD_1 := #ALARM_BLOCK.TEXTLIST_ID,
+	                SD_2 := #ALARM_BLOCK.INDEX);
+	    
+	    IF NOT #IDLE THEN
+	        #InterfaceInOut.%X10 := true;
+	    END_IF;
+	    
+	    IF #HELD THEN
+	        #InterfaceInOut.%X11 := true;
+	    END_IF;
+	    
+	    IF #START THEN
+	        #InterfaceInOut.%X12 := true;
+	    END_IF;
+	    
+	    IF #STOP THEN
+	        #InterfaceInOut.%X13 := true;
+	    END_IF;
+	    
+	    IF #ABORT THEN
+	        #InterfaceInOut.%X14 := true;
+	    END_IF;
+	    
+	    IF #PAUSE THEN
+	        #InterfaceInOut.%X15 := true;
+	    END_IF;
+	    
+	    IF #COMPLETED THEN
+	        #InterfaceInOut.%X16 := true;
+	    END_IF;
+	    
+	    #step_prev := #step;
+	END_REGION
+	

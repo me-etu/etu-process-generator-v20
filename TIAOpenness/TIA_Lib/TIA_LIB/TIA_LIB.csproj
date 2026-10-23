@@ -129,6 +129,7 @@
     <Compile Include="GeneratedPhaseModel.cs" />
     <Compile Include="GeneratedInterlockModel.cs" />
     <Compile Include="GenerationConfiguration.cs" />
+    <Compile Include="GenerationExecutionLog.cs" />
     <Compile Include="ModularGenerationRuntime.cs" />
     <Compile Include="ArtifactBatchExecution.cs" />
     <Compile Include="PhaseFbdRenderer.cs" />

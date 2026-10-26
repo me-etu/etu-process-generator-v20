@@ -186,5 +186,70 @@ namespace TIA_LIB.Generation
             foreach (var region in model.Regions) Region(region, "", result);
             return result.AsReadOnly();
         }
+        internal XElement RenderAssignments(string title, string comment, IEnumerable<GeneratedAssignment> assignments, XNamespace sourceNamespace, string culture)
+        {
+            uid = 20; parts = Node("Parts"); wires = Node("Wires");
+            // Keep assignment branches in declaration order. Only adjacent equal
+            // positive assignments can share a signal: sharing across Service's
+            // alternating negative/positive writes creates interleaved branches.
+            XElement previousOperand = null;
+            XElement previousSignal = null;
+            foreach (var assignment in assignments)
+            {
+                Statement(new GeneratedStatement(assignment, null));
+                var coil = parts.Elements().Last(e => e.Name.LocalName == "Part" && (string)e.Attribute("Name") == "Coil");
+                string coilId = (string)coil.Attribute("UId");
+                var input = wires.Elements().Single(w => w.Elements().Any(e => e.Name.LocalName == "NameCon" &&
+                    (string)e.Attribute("UId") == coilId && (string)e.Attribute("Name") == "in"));
+                var operand = input.Elements().SingleOrDefault(e => e.Name.LocalName == "IdentCon");
+                if (operand == null) { previousOperand = null; continue; }
+                var source = parts.Elements().Single(e => (string)e.Attribute("UId") == (string)operand.Attribute("UId"));
+                var key = new XElement("Operand", source.Attributes().Where(a => a.Name.LocalName != "UId").Select(a => new XAttribute(a)), source.Elements());
+                if (previousOperand != null && XNode.DeepEquals(previousOperand, key))
+                {
+                    previousSignal.Add(Pin((int)coil.Attribute("UId"), "in"));
+                    input.Remove(); source.Remove();
+                }
+                else
+                {
+                    // Coil.in requires a gate signal, not a raw operand. Each
+                    // gate input retains its own point-to-point Access occurrence.
+                    int previousGate = Part("A", Template("Card", "Cardinality", "1"));
+                    input.Elements().Single(e => e.Name.LocalName == "NameCon").ReplaceWith(Pin(previousGate, "in1"));
+                    Wire(Pin(previousGate, "out"), Pin((int)coil.Attribute("UId"), "in"));
+                    previousSignal = wires.Elements().Last();
+                    previousOperand = key;
+                }
+            }
+            // Statement() creates the destination first. Native multi-statement
+            // FBD import requires executable elements sorted by power flow.
+            // Walk each coil's dependencies before the coil, retaining write order
+            // and contiguous fan-out branches. Access operands precede all parts.
+            var instructions = parts.Elements().Where(e => e.Name.LocalName == "Part").ToArray();
+            var byId = instructions.ToDictionary(e => (string)e.Attribute("UId"));
+            var ordered = new List<XElement>();
+            var visited = new HashSet<string>();
+            Action<XElement> visit = null;
+            visit = instruction =>
+            {
+                string id = (string)instruction.Attribute("UId");
+                if (!visited.Add(id)) return;
+                foreach (var wire in wires.Elements().Where(w => w.Elements().Any(e => e.Name.LocalName == "NameCon" &&
+                    (string)e.Attribute("UId") == id && ((string)e.Attribute("Name")).StartsWith("in", StringComparison.Ordinal))))
+                    foreach (var producer in wire.Elements().Where(e => e.Name.LocalName == "NameCon" && (string)e.Attribute("Name") == "out"))
+                        visit(byId[(string)producer.Attribute("UId")]);
+                ordered.Add(instruction);
+            };
+            foreach (var instruction in instructions) visit(instruction);
+            var accesses = parts.Elements().Where(e => e.Name.LocalName == "Access").ToArray();
+            parts.ReplaceNodes(accesses.Concat(ordered));
+            var graph = Node("FlgNet", parts, wires);
+            foreach (var element in graph.DescendantsAndSelf()) element.Name = sourceNamespace + element.Name.LocalName;
+            var result = new XElement("SW.Blocks.CompileUnit", new XAttribute("ID", "1"), new XAttribute("CompositionName", "CompileUnits"),
+                new XElement("AttributeList", new XElement("NetworkSource", graph), new XElement("ProgrammingLanguage", "FBD")),
+                new XElement("ObjectList", Presentation("1", "Title", title), Presentation("2", "Comment", comment)));
+            foreach (var value in result.Descendants("Culture")) value.Value = culture;
+            return result;
+        }
     }
 }

@@ -279,7 +279,13 @@ public static class SclStyleAndTypeFoldersTests
                         Check(body.Contains("// Unit status") && body.Contains("// All assigned IOs to this unit"), "Runtime semantic roles missing.");
                         Check(XNode.DeepEquals(rendered, RuntimeRender(unit)), "Runtime rerender differs.");
                     }
-                    else Check(rendered.Descendants().Where(e => e.Name.LocalName == "FlgNet").Count() == unit.Networks.Count, "FBD layout changed network count.");
+                    else
+                    {
+                        var modes = new UnitModePlan(unit);
+                        int added = (modes.Off.Count == 0 ? 0 : 1) + (modes.Service.Count == 0 ? 0 : 1);
+                        Check(rendered.Descendants().Count(e => e.Name.LocalName == "FlgNet") == unit.Networks.Count + added, "FBD changed original networks or duplicated mode groups.");
+                        Check(rendered.Descendants().Count(e => e.Name.LocalName == "CallInfo") == unit.Networks.Values.Sum(n => n.Calls.Count), "Mode networks changed device invocation count.");
+                    }
                     Check(unit.Xml.ToString() == original, "Runtime changed editable shadow/declaration comments.");
                 }
             }

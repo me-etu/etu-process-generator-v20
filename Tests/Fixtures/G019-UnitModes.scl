@@ -1,0 +1,25 @@
+REGION MODE Off
+    // Setting actuators to Off mode
+    #"V-1"."OFF" := #"iMode_Off";
+    #"M-1"."OFF" := #"iMode_Off";
+    #"CV-1"."OFF" := #"iMode_Off";
+    #"MC-1"."OFF" := #"iMode_Off";
+    #"PID-1"."OFF" := #"iMode_Off";
+
+END_REGION
+
+REGION MODE Service
+    // Setting actuators to Service mode
+    #"CFG"."V-1"."FEATURE"."IsAutoModeDefault" := NOT (#"iMode_Service");
+    #"CFG"."V-1"."FEATURE"."IsInterlockOff" := #"iMode_Service";
+
+    #"CFG"."M-1"."FEATURE"."IsAutoModeDefault" := NOT (#"iMode_Service");
+    #"CFG"."M-1"."FEATURE"."IsInterlockOff" := #"iMode_Service";
+
+    #"CFG"."CV-1"."FEATURE"."IsAutoModeDefault" := NOT (#"iMode_Service");
+    #"CFG"."CV-1"."FEATURE"."IsInterlockOff" := #"iMode_Service";
+
+    #"CFG"."MC-1"."FEATURE"."IsAutoModeDefault" := NOT (#"iMode_Service");
+    #"CFG"."MC-1"."FEATURE"."IsInterlockOff" := #"iMode_Service";
+
+END_REGION

@@ -134,6 +134,7 @@ namespace TIA_LIB.Generation
         }
         internal XElement Editable(XmlBlock block, string name, XElement exported)
         {
+            block.ManagedBodyVerified = false;
             if (exported == null || block is XmlPlant) return exported;
             string ledger = Ledger(name);
             if (File.Exists(ledger))
@@ -141,7 +142,9 @@ namespace TIA_LIB.Generation
                 var record = XElement.Load(ledger);
                 if ((string)record.Attribute("Staging") != PlcProject.StagingMode.ToString())
                     throw new InvalidOperationException("Existing modular block '" + name + "' uses a different/unrecorded hardware staging mode. Reconcile its IO mappings explicitly before changing modes.");
-                return RestoreOwnedBlock(block, name, ManagedArtifactOwnership.Read(record), exported);
+                var restored = RestoreOwnedBlock(block, name, ManagedArtifactOwnership.Read(record), exported);
+                block.ManagedBodyVerified = true;
+                return restored;
             }
             string language = (string)exported.Element("SW.Blocks.FB")?.Element("AttributeList")?.Element("ProgrammingLanguage");
             if (language == "FBD") return exported; // Inventory only; preflight will refuse unowned replacement.
@@ -284,6 +287,8 @@ namespace TIA_LIB.Generation
                 {
                     var modelNetwork = block.Networks.Values.SingleOrDefault(n => n.Xml == network);
                     if (modelNetwork == null) throw new InvalidOperationException("Unregistered/manual network in " + BlockName(block) + "; reconcile it explicitly.");
+                    if (unit != null && (modelNetwork.Name == "MODE Off" || modelNetwork.Name == "MODE Service"))
+                        throw new InvalidOperationException("Conflicting MODE network in " + unit.Name + "; reconcile its ownership explicitly. No title-based replacement.");
                     foreach (var call in modelNetwork.Calls.Values.Where(c => c.InstType == "LocalVariable"))
                     {
                         XmlLocalInstance declaration;
@@ -305,6 +310,7 @@ namespace TIA_LIB.Generation
                     logical.Add(new GeneratedLogicalNetwork(model, category, NetworkRole(block, modelNetwork.Name), description));
                 }
                 var plan = new GeneratedBlockBody(logical);
+                if (unit != null) plan = new UnitModePlan(unit).Apply(plan);
                 networks = SelectedLanguage == "FBD" ? (IEnumerable<XElement>)plan.RenderFbd() : new[] { SclNetwork(new StructuredTextBodyRenderer().Render(plan)) };
             }
             foreach (var old in oldBodies) old.Remove();
@@ -501,6 +507,7 @@ namespace TIA_LIB.Generation
             // Capture the original blocks before any review gate can stop planning.
             ExportBlock("cfgData"); ExportBlock(BlockName(project.Plant));
             foreach (var block in OwnedBlocks()) ExportBlock(BlockName(block));
+            AuditUnitConfigurationUpgrades();
             UnitConfigurationPlan.ValidateUnitNames(OrderedUnits().Select(u => new UnitConfigurationPlan(u.Name, new ConfigurationLeaf[0])));
             ModularControlRouting.Prepare(project.Plant);
             PlanConfiguration();
@@ -553,6 +560,52 @@ namespace TIA_LIB.Generation
             plan.Save(Path.Combine(runDirectory, "plan.xml"));
             prepared = true; preparedHash = ModelHash();
             Console.WriteLine("Modular generation preflight/backups: " + runDirectory);
+        }
+        void AuditUnitConfigurationUpgrades()
+        {
+            var plan = new XElement("UnitConfigurationInOutUpgrade", new XAttribute("Context", context),
+                new XElement("CyclicOwnership", "After Devices/before Operations: OFF is written each scan. Valve/motor CFG.FEATURE.IsAutoModeDefault and IsInterlockOff are cyclically overwritten, including on leaving Service; manual/HMI changes to those two fields are not restored."),
+                new XElement("OnlineValues", "Not captured; no download or DB recreation."));
+            var conflicts = new List<string>();
+            foreach (var unit in OrderedUnits())
+            {
+                var modes = new UnitModePlan(unit);
+                var entry = new XElement("Unit", new XAttribute("Name", unit.Name),
+                    modes.Off.Concat(modes.Service).Select(a => new XElement("CyclicWrite", a.RenderScl())));
+                plan.Add(entry);
+                var sections = unit.OriginalDocument?.Element("SW.Blocks.FB")?.Element("AttributeList")?.Element("Interface")?.Elements().FirstOrDefault(e => e.Name.LocalName == "Sections");
+                bool upgrade = sections?.Elements().Where(s => (string)s.Attribute("Name") == "Input").SelectMany(s => s.Elements()).Any(m => (string)m.Attribute("Name") == "CFG") ?? false;
+                entry.SetAttributeValue("InputToInOut", upgrade);
+                if (!upgrade) continue;
+                entry.Add(new XElement("OriginalExportHash", ManagedArtifactOwnership.Fingerprint(unit.OriginalDocument)));
+                if (!unit.ManagedBodyVerified) conflicts.Add(unit.Name + ": Input CFG has no verified block ownership");
+                string definition = BlockName(unit);
+                var knownInstances = new HashSet<string>(unit.Instances.Select(i => i.Split('|')).Where(i => i.Length == 3 &&
+                    string.Equals(i[0], "true", StringComparison.OrdinalIgnoreCase)).Select(i => i[1]), StringComparer.OrdinalIgnoreCase);
+                foreach (var current in blocks.Values)
+                {
+                    if (current.Name == definition || knownInstances.Contains(current.Name)) continue;
+                    XElement exported;
+                    try { exported = ExportBlock(current.Name); }
+                    catch (Exception error)
+                    {
+                        entry.Add(new XElement("UninspectableCaller", new XAttribute("Name", current.Name), error.Message));
+                        conflicts.Add(unit.Name + ": cannot audit caller " + current.Name); continue;
+                    }
+                    var instance = current as InstanceDB;
+                    try
+                    {
+                        if (UnitConfigurationCallAudit.ValidateCaller(exported, current.Name, BlockName(project.Plant), definition, unit.Name,
+                            instance != null && string.Equals(instance.InstanceOfName, definition, StringComparison.OrdinalIgnoreCase)))
+                            entry.Add(new XElement("Caller", new XAttribute("Name", current.Name)));
+                    }
+                    catch (InvalidOperationException error)
+                    { entry.Add(new XElement("ConflictingCaller", new XAttribute("Name", current.Name))); conflicts.Add(unit.Name + ": " + error.Message); }
+                }
+            }
+            foreach (string conflict in conflicts) plan.Add(new XElement("ReconciliationRequired", conflict));
+            string file = Path.Combine(runDirectory, "unit-cfg-inout-plan.xml"); plan.Save(file);
+            if (conflicts.Count != 0) throw new InvalidOperationException("Unit CFG InOut upgrade requires external/manual caller reconciliation. No callers were rewritten. Review " + file + ": " + string.Join("; ", conflicts));
         }
         void Preflight()
         {
@@ -627,6 +680,7 @@ namespace TIA_LIB.Generation
         }
         void ValidateLibraryContracts()
         {
+            foreach (var unit in OrderedUnits()) new UnitModePlan(unit).ValidateDefinitions(ExportBlock, ExportType);
             foreach (var block in shadows.Keys)
             foreach (var call in block.Networks.Values.SelectMany(n => n.Calls.Values))
             {

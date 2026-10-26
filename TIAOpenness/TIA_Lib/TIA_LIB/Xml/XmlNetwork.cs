@@ -420,6 +420,41 @@ namespace TIA_LIB.Xml
 
         internal void ConfigureSymbolInput(XmlCall call, string pinName, string datatype, SignalReference reference, bool removeUnusedOldReference = false)
         {
+            ConfigureSymbolParameter(call, pinName, datatype, reference, "Input", removeUnusedOldReference);
+        }
+
+        internal void ValidateSymbolInOut(XmlCall call, string pinName, string datatype, SignalReference reference, bool allowOwnedInputUpgrade)
+        {
+            var parameters = call.CallInfo.Elements().Where(e => e.Name.LocalName == "Parameter" &&
+                string.Equals((string)e.Attribute("Name"), pinName, StringComparison.OrdinalIgnoreCase)).ToArray();
+            var ends = Xml.Descendants().Where(e => e.Name.LocalName == "NameCon" && (string)e.Attribute("UId") == call.UId.ToString() &&
+                string.Equals((string)e.Attribute("Name"), pinName, StringComparison.OrdinalIgnoreCase)).ToArray();
+            Func<InvalidOperationException> invalid = () => new InvalidOperationException("Unit CFG InOut requires one direct writable alias at " + Block.Name + "/" + call.InstName + "." + pinName + "; preserve/reconcile the existing parameter, source and ownership.");
+            if (parameters.Length == 0 && ends.Length == 0) return;
+            if (parameters.Length != 1 || ends.Length != 1 || (string)parameters[0].Attribute("Name") != pinName ||
+                ((string)parameters[0].Attribute("Type"))?.Trim('"') != datatype.Trim('"') ||
+                ((string)parameters[0].Attribute("Section") != "InOut" && (!allowOwnedInputUpgrade || (string)parameters[0].Attribute("Section") != "Input"))) throw invalid();
+            var wire = ends[0].Parent;
+            var id = wire.Elements().SingleOrDefault(e => e.Name.LocalName == "IdentCon");
+            XmlAccess access;
+            if (id == null || wire.Elements().Count() != 2 || !Access.TryGetValue((int)id.Attribute("UId"), out access)) throw invalid();
+            var source = access as XmlGlobal;
+            if (source == null || (string)source.Xml.Attribute("Scope") != (reference.IsGlobal ? "GlobalVariable" : "LocalVariable") ||
+                !source.Components.SequenceEqual(reference.Value.Split('|')) || call.Negations.Contains(pinName) ||
+                call.Xml.Elements().Any(e => e.Name.LocalName == "Negated" && (string)e.Attribute("Name") == pinName)) throw invalid();
+            var symbols = source.Xml.Elements().Where(e => e.Name.LocalName == "Symbol").ToArray();
+            if (symbols.Length != 1 || symbols[0].Elements().Any(e => e.Name.LocalName != "Component" || e.HasElements || e.Attribute("SliceAccessModifier") != null) ||
+                !symbols[0].Elements().Select(e => (string)e.Attribute("Name")).SequenceEqual(reference.Value.Split('|'))) throw invalid();
+        }
+
+        internal void ConfigureSymbolInOut(XmlCall call, string pinName, string datatype, SignalReference reference, bool allowOwnedInputUpgrade)
+        {
+            ValidateSymbolInOut(call, pinName, datatype, reference, allowOwnedInputUpgrade);
+            ConfigureSymbolParameter(call, pinName, datatype, reference, "InOut", true);
+        }
+
+        void ConfigureSymbolParameter(XmlCall call, string pinName, string datatype, SignalReference reference, string section, bool removeUnusedOldReference)
+        {
             // Legacy v4 construction has unqualified children; exports are qualified.
             Func<XElement, string, bool> named = (e, name) => e.Name == _Namespace + name || e.Name == XName.Get(name);
             Func<string, InvalidOperationException> invalid = detail => new InvalidOperationException(
@@ -458,12 +493,12 @@ namespace TIA_LIB.Xml
             bool correct = source != null && (string)source.Xml.Attribute("Scope") == (reference.IsGlobal ? "GlobalVariable" : "LocalVariable") &&
                 source.Components.SequenceEqual(reference.Value.Split('|'));
             var negations = call.Xml.Elements().Where(e => named(e, "Negated") && (string)e.Attribute("Name") == pinName).ToArray();
-            bool parameterCorrect = parameters.Length == 1 && (string)parameters[0].Attribute("Section") == "Input" &&
+            bool parameterCorrect = parameters.Length == 1 && (string)parameters[0].Attribute("Section") == section &&
                 (string)parameters[0].Attribute("Type") == datatype;
             if (correct && parameterCorrect && negations.Length == 0 && !call.Negations.Contains(pinName))
             {
                 // Exported fan-out wires are not indexed by the legacy single-pin parser.
-                var existing = call.GetParameter(pinName, "Input", datatype);
+                var existing = call.GetParameter(pinName, section, datatype);
                 if (!wire.Contains(existing)) wire.Pins.Add(existing);
                 wire.Value = source;
                 UIdIdentCon[call.UId + "|" + pinName] = source.UId.ToString();
@@ -471,11 +506,11 @@ namespace TIA_LIB.Xml
                 return;
             }
 
-            var parameter = call.GetParameter(pinName, "Input", datatype);
+            var parameter = call.GetParameter(pinName, section, datatype);
             if (parameters.Length == 0) parameter.Xml.Name = _Namespace + "Parameter";
-            parameter.Section = "Input";
+            parameter.Section = section;
             parameter.Type = datatype;
-            parameter.Xml.SetAttributeValue("Section", "Input");
+            parameter.Xml.SetAttributeValue("Section", section);
             parameter.Xml.SetAttributeValue("Type", datatype);
             foreach (var negation in negations) negation.Remove();
             call.Negations.RemoveAll(n => n == pinName);

@@ -142,6 +142,7 @@
     <Compile Include="Xml\XmlBlock.cs" />
     <Compile Include="OperationInterlocks.cs" />
     <Compile Include="ModularGenerationPlan.cs" />
+    <Compile Include="UnitModePlan.cs" />
     <Compile Include="ModularControlRouting.cs" />
     <Compile Include="ConfigurationMigrationPlan.cs" />
     <Compile Include="ConfigurationMigrationApproval.cs" />

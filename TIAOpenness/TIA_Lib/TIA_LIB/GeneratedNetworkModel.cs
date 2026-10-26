@@ -117,14 +117,16 @@ namespace TIA_LIB.Generation
         public string Identity { get; }
         public string Title { get; }
         public ReadOnlyCollection<GeneratedInvocation> Invocations { get; }
+        public ReadOnlyCollection<GeneratedAssignment> Assignments { get; }
         public ReadOnlyCollection<string> Reads { get; }
         public ReadOnlyCollection<string> Writes { get; }
         public ReadOnlyCollection<string> Comments { get; }
         GeneratedNetworkModel(string identity, string title, XElement original, IEnumerable<GeneratedInvocation> calls,
-            IEnumerable<string> reads, IEnumerable<string> writes)
+            IEnumerable<string> reads, IEnumerable<string> writes, IEnumerable<GeneratedAssignment> assignments = null)
         {
             Identity = identity; Title = SiemensSource.RegionTitle(title); fbd = new XElement(original);
             Invocations = calls.ToList().AsReadOnly();
+            Assignments = (assignments ?? Enumerable.Empty<GeneratedAssignment>()).ToList().AsReadOnly();
             Reads = reads.Distinct(StringComparer.OrdinalIgnoreCase).ToList().AsReadOnly();
             Writes = writes.Distinct(StringComparer.OrdinalIgnoreCase).ToList().AsReadOnly();
             Comments = original.Descendants("MultilingualText")
@@ -133,6 +135,22 @@ namespace TIA_LIB.Generation
                 .Where(s => !string.IsNullOrWhiteSpace(s)).ToList().AsReadOnly();
         }
         public XElement RenderFbd() { return new XElement(fbd); }
+        internal static GeneratedNetworkModel FromAssignments(string identity, string title, string comment,
+            IEnumerable<GeneratedAssignment> assignments, XNamespace sourceNamespace, string culture)
+        {
+            var ordered = assignments.ToArray();
+            if (ordered.Length == 0 || ordered.Any(a => a.Destination.Kind != GeneratedExpressionKind.Symbol || a.Destination.Datatype != "Bool") ||
+                ordered.Select(a => a.Destination.RenderScl()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != ordered.Length)
+                throw new InvalidOperationException("Assignment network requires unique writable Bool targets: " + identity);
+            var xml = new PhaseFbdRenderer().RenderAssignments(title, comment, ordered, sourceNamespace, culture);
+            return new GeneratedNetworkModel(identity, title, xml, new GeneratedInvocation[0],
+                ordered.SelectMany(a => References(a.Value)), ordered.Select(a => a.Destination.RenderScl()), ordered);
+        }
+        static IEnumerable<string> References(GeneratedExpression expression)
+        {
+            if (expression.Symbol != null) yield return SiemensSource.Reference(expression.Symbol);
+            foreach (var value in expression.Operands.SelectMany(References)) yield return value;
+        }
         public string RenderScl()
         {
             return new GeneratedBlockBody(new[] { new GeneratedLogicalNetwork(this) }).RenderScl();

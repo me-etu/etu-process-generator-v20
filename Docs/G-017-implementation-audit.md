@@ -1,5 +1,7 @@
 # G-017 implementation and validation audit
 
+G-019 supersedes the historical outer Unit CFG Input contract in this audit with InOut and adds after-Devices cyclic mode writes. Device CFG Input contracts and the original G-017 evidence remain unchanged; see [G-019 validation](G-019-implementation-validation.md) for the current behavior and limits.
+
 Audited 2026-10-23. Baseline `main` at `398aa7f`; work branch
 `g-017-modular-generation`. This replaces the preparation-only checkpoint.
 The modular runtime is now connected to both app entry points and PlcProject.

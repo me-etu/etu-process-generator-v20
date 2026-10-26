@@ -12,6 +12,7 @@ namespace TIA_LIB.Xml
 {
     public class XmlBlock
     {
+        internal bool ManagedBodyVerified;
         public XmlBlock(PlcBlockUserGroup parent_user_group, string name, string file_name, string template, string instName, bool instGlobal = false, string user_gorup_name = "", bool overwrite = false, bool preserveOnly = false, string expectedLanguage = null, XmlBlock parentBlock = null)
         {          
             _Name = name;

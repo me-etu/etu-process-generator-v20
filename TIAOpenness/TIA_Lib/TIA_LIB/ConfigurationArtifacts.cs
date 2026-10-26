@@ -150,11 +150,14 @@ namespace TIA_LIB.Generation
             if (plantNetwork == null) throw new InvalidOperationException("Missing Plant call for configuration " + plan.Unit + ".");
             var unitCall = plantNetwork.Calls.Values.SingleOrDefault(c => c.InstName == unit.Name && c.BlockName == "fb" + unit.Name && c.InstType == "GlobalVariable");
             if (unitCall == null) throw new InvalidOperationException("Missing exact Plant Unit call for configuration " + plan.Unit + ".");
-            ModularControlRouting.RequireInput(unit, "CFG", "\"" + plan.UdtName + "\"");
+            // Check the Plant alias before moving the Unit member or routing devices.
+            plantNetwork.ValidateSymbolInOut(unitCall, "CFG", "\"" + plan.UdtName + "\"",
+                new SignalReference("cfgData|" + plan.SafeUnit, true), unit.ManagedBodyVerified);
+            ModularControlRouting.RequireUnitConfiguration(unit, "\"" + plan.UdtName + "\"");
             foreach (var call in calls)
                 call.Network.ConfigureSymbolInput(call, "CFG", call.Parameters["CFG"].Type, new SignalReference("CFG|" + call.InstName, false), true);
-            plantNetwork.ConfigureSymbolInput(unitCall, "CFG", "\"" + plan.UdtName + "\"",
-                new SignalReference("cfgData|" + plan.SafeUnit, true), true);
+            plantNetwork.ConfigureSymbolInOut(unitCall, "CFG", "\"" + plan.UdtName + "\"",
+                new SignalReference("cfgData|" + plan.SafeUnit, true), unit.ManagedBodyVerified);
         }
     }
 }

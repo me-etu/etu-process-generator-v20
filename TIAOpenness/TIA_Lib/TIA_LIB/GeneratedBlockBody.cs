@@ -10,7 +10,7 @@ namespace TIA_LIB.Generation
     public enum GeneratedNetworkRole
     {
         None, UnitStatus, UnitPreconditions, UnitControl, OperationCall,
-        OperationControl, OperationInterlocks, PhasePreconditions, PhaseControl, PhaseCall
+        OperationControl, OperationInterlocks, PhasePreconditions, PhaseControl, PhaseCall, ModeOff, ModeService
     }
     public sealed class GeneratedLogicalNetwork
     {

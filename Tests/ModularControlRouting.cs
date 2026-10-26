@@ -148,7 +148,8 @@ public static class ModularControlRoutingTests
             var inputs = sections.Elements().Single(s => (string)s.Attribute("Name") == "Input");
             foreach (string name in new[] { "iReset", "iReset_Delayed", "iMode_Off", "iMode_Service", "iHSS" })
                 Check(inputs.Elements().Any(m => (string)m.Attribute("Name") == name && (string)m.Attribute("Datatype") == "Bool"), "Empty/PID unit is missing controls.");
-            Check(inputs.Elements().Any(m => (string)m.Attribute("Name") == "CFG") == pidOnly &&
+            Check(!inputs.Elements().Any(m => (string)m.Attribute("Name") == "CFG") &&
+                sections.Elements().Where(s => (string)s.Attribute("Name") == "InOut").SelectMany(s => s.Elements()).Any(m => (string)m.Attribute("Name") == "CFG") == pidOnly &&
                 !inputs.Elements().Any(m => new[] { "hwIN", "hwOUT" }.Contains((string)m.Attribute("Name"))), "Empty/PID CFG/hardware interfaces differ.");
             Check(Render(unit).Descendants().Count(e => e.Name.LocalName == "CallInfo") == unit.Networks.Values.Sum(n => n.Calls.Count), "Empty/PID renderer lost calls.");
         }
@@ -284,7 +285,7 @@ public static class ModularControlRoutingTests
                         new XElement("Member", new XAttribute("Name", "IsMeldSystemOff"), new XAttribute("Datatype", "Bool"), new XElement("StartValue", "false"))))));
                 string cfgSnapshot = originalCfg.ToString();
                 var migration = ConfigurationMigrationPlan.Inspect(unit, originalCfg);
-                Check(migration.Configuration.Leaves.Count == 11 && migration.ExistingLegacyMembers.Count == 11 && migration.InterfaceDirection == "Input", "Configuration inventory differs for seven families plus monitors.");
+                Check(migration.Configuration.Leaves.Count == 11 && migration.ExistingLegacyMembers.Count == 11 && migration.InterfaceDirection == "InOut", "Configuration inventory/outer Unit direction differs for seven families plus monitors.");
                 Check(migration.Preconditions(false, false, false).Count == 3 && migration.Preconditions(true, true, true).Count == 0, "Migration protections are missing.");
                 Check(!ConfigurationMigrationPlan.Inspect(unit, null).RequiresMigration, "Fresh declarations were mistaken for legacy data.");
                 var plannedPid = migration.Configuration.Leaves.Single(l => l.Instance == "PID-1").Member;

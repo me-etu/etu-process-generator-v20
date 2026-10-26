@@ -2,6 +2,22 @@
 
 All notable project and generator changes should be recorded here.
 
+## 2026-10-26
+
+### Added
+
+- The user confirmed successful live FBD generation after the G-019 power-flow ordering correction. Both V21 Debug builds and all thirteen offline suites against both outputs also pass. The wider SCL/live timing, aliasing and repeat-generation matrix remains separately documented.
+- G-019 Unit mode plan shared by FBD/SCL: five main actuator/PID families receive cyclic OFF, and the four valve/motor families receive both Service FEATURE writes. Both groups execute after Devices/before Operations; empty groups are omitted. Devices retain next-call timing; Service flags overwrite manual/HMI edits cyclically without restoring prior values. Separate styled SCL OFF assignments are the documented chain-presentation fallback.
+- Unit CFG now uses a direct Plant InOut alias to cfgData.<SafeUnit>; device CFG pins remain Input. Verified old Input members move intact to InOut, with strict alias/collision/ownership checks. A retained upgrade plan audits callers and records cyclic field ownership; unknown/uninspectable callers stop for reconciliation. Type folders, migration approvals, instance-DB preservation and compile/export guards remain in force.
+- Offline inventory/namespace/interface fixtures, independent multi-scan SCL/FBD oracle, copied-Input counterexample, protected upgrade/caller checks and Siemens FBD schema validation. Live Portal aliasing, instance DB consistency and runtime behavior require a disposable-project trial.
+
+### Fixed
+
+- G-019 FBD mode graphs now serialize gates before their dependent coils and share positive outputs only across consecutive assignments. The next native Service import rejected interleaved branches with a power-flow ordering error at coil 44. Service pairs retain declaration order with separate gate branches; Off retains its contiguous shared fan-out. Ordering/branch regressions and the existing schema, wiring and scan checks pass in all thirteen suites against both rebuilt V21 outputs. Native import after this correction remains unverified.
+- G-019 MODE Service FBD wiring now uses separate operand occurrences for each gate input, including shared TRUE literals. The subsequent TIA trial accepted MODE Off but rejected the Service IdentCon fan-out as a power rail. Boolean gate outputs retain signal fan-out; assignment values/order, inversion and SCL are unchanged. New point-to-point operand regressions, both V21 builds and all thirteen suites pass against both outputs; full live import retry remains pending.
+- G-019 FBD mode assignments now drive positive coils through one shared single-input AND gate per source. TIA rejected direct IdentCon-to-Coil.in wiring during Unit import, despite generic XSD acceptance. The gate preserves source fan-out, inversion and scan semantics and matches the supplied FBD reference. Native connection-shape regressions now supplement schema and scan tests; both V21 builds and all thirteen suites pass against both outputs. A live import retry remains pending.
+- G-019 mode-contract validation now reads inline Struct fields directly under their Member, matching the actual Siemens typeValveCfg export. It also retains support for Sections-wrapped fields and referenced types, while rejecting ambiguous/missing/non-Bool paths. This fixes the reported FBD preflight failure on CFG.FEATURE.IsAutoModeDefault. A minimal export-shaped regression and read-only replay of the failed run's actual valve contracts pass; both V21 builds and all thirteen offline suites pass against both outputs. Live generation retry remains pending.
+
 ## 2026-10-23
 
 ### Added

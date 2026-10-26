@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Xml.Linq;
 using TIA_LIB.SignalStaging;
 using TIA_LIB.Xml;
 using TIA_LIB.Xml.Network;
@@ -9,6 +10,38 @@ namespace TIA_LIB.Generation
     // Prepared offline; activation belongs to G-017's finalized plan/preflight pass.
     internal static class ModularControlRouting
     {
+        internal static void RequireUnitConfiguration(XmlUnit unit, string datatype)
+        {
+            if (unit.OriginalDocument != null && !unit.ManagedBodyVerified)
+                throw new InvalidOperationException("Unit CFG InOut requires verified existing block ownership for " + unit.Name);
+            var sections = unit.Xml.Element("SW.Blocks.FB")?.Element("AttributeList")?.Element("Interface")?.Elements().SingleOrDefault(e => e.Name.LocalName == "Sections");
+            if (sections == null) throw new InvalidOperationException("Missing Unit interface for " + unit.Name);
+            var members = sections.Elements().SelectMany(s => s.Elements()).Where(m => m.Name.LocalName == "Member" &&
+                string.Equals((string)m.Attribute("Name"), "CFG", StringComparison.OrdinalIgnoreCase)).ToArray();
+            var targets = sections.Elements().Where(s => (string)s.Attribute("Name") == "InOut").ToArray();
+            if (members.Length > 1 || targets.Length > 1 || members.Any(m => (string)m.Attribute("Name") != "CFG" ||
+                ((string)m.Attribute("Datatype"))?.Trim('"') != datatype.Trim('"') ||
+                ((string)m.Parent.Attribute("Name") != "InOut" && ((string)m.Parent.Attribute("Name") != "Input" || !unit.ManagedBodyVerified))))
+                throw new InvalidOperationException("Unit CFG InOut collision/ownership differs for " + unit.Name + "; preserve and reconcile its declaration before upgrading.");
+            var target = targets.SingleOrDefault();
+            if (target == null)
+            {
+                target = new XElement(sections.Name.Namespace + "Section", new XAttribute("Name", "InOut"));
+                var next = sections.Elements().FirstOrDefault(s => new[] { "Static", "Temp", "Constant" }.Contains((string)s.Attribute("Name")));
+                if (next == null) sections.Add(target); else next.AddBeforeSelf(target);
+            }
+            if (members.Length == 0)
+            {
+                target.Add(new XElement(sections.Name.Namespace + "Member", new XAttribute("Name", "CFG"),
+                    new XAttribute("Datatype", datatype), new XAttribute("Accessibility", "Public")));
+                unit.HasChanged = true;
+            }
+            else if (members[0].Parent != target)
+            {
+                // Move the exact verified member: nested overrides and metadata survive.
+                members[0].Remove(); target.Add(members[0]); unit.HasChanged = true;
+            }
+        }
         internal static void RequireInput(XmlBlock block, string name, string datatype)
         {
             var sections = block.Xml.Element("SW.Blocks.FB")?.Element("AttributeList")?.Element("Interface")?.Elements().FirstOrDefault(e => e.Name.LocalName == "Sections");

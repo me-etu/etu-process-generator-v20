@@ -176,12 +176,23 @@ namespace TIA_LIB.Generation
                 bool first = true;
                 foreach (var call in network.Body.Invocations)
                 { if (!first) result.Add(Line()); first = false; Invocation(result, call, depth + 1); }
-                EndRegion(result, depth, comments.Count != 0 || !string.IsNullOrWhiteSpace(purpose) || network.Body.Invocations.Count != 0);
+                string previousDevice = null;
+                foreach (var assignment in network.Body.Assignments)
+                {
+                    string device = assignment.Destination.Symbol.Components.Count > 1 ? assignment.Destination.Symbol.Components[1] : null;
+                    if (network.Role == GeneratedNetworkRole.ModeService && previousDevice != null && previousDevice != device) result.Add(Line());
+                    Indent(result, depth + 1);
+                    DestinationAssignment(result, assignment);
+                    previousDevice = device;
+                }
+                EndRegion(result, depth, comments.Count != 0 || !string.IsNullOrWhiteSpace(purpose) || network.Body.Invocations.Count + network.Body.Assignments.Count != 0);
             }
             if (devices) { EndRegion(result, 1); EndRegion(result, 0); }
             if (operations) EndRegion(result, 0);
             return Renumber(result);
         }
+        void DestinationAssignment(XElement destination, GeneratedAssignment assignment)
+        { destination.Add(Expression(assignment.Destination), Blank(), Token(":="), Blank(), Expression(assignment.Value), Token(";"), Line()); }
         static XElement Renumber(XElement result)
         {
             int id = 20;

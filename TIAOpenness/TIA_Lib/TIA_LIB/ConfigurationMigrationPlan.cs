@@ -14,7 +14,7 @@ namespace TIA_LIB.Generation
         public UnitConfigurationPlan Configuration { get; }
         public ReadOnlyCollection<string> ExistingLegacyMembers { get; }
         public bool RequiresMigration { get { return ExistingLegacyMembers.Count != 0; } }
-        public string InterfaceDirection { get { return "Input"; } }
+        public string InterfaceDirection { get { return "InOut"; } }
         public ReadOnlyCollection<string> Preconditions(bool externalConsumersReviewed, bool offlineBackupCaptured, bool onlineValuesAddressed)
         {
             var issues = new List<string>();

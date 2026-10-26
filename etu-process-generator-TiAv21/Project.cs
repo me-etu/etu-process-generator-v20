@@ -14,6 +14,7 @@ using Siemens.Engineering.SW.Blocks;
 using System.Drawing;
 using System.Globalization;
 using System.Threading;
+using System.Windows.Controls;
 
 namespace EtuProcessGeneratorTiaV21
 {
@@ -32,20 +33,20 @@ namespace EtuProcessGeneratorTiaV21
 
 
 
-             
-            //    #region Unit TK003
-            //    AddAnalog("TK003", "LC-B13", 2, 2, "%", 0, 0, 100); // Level radar sensor BV130 B13
-            //    AddDigital("TK003", "LSA-B23", 2, 0, 0, false, false); // Overfill protection BV130 B23
-            //    AddDigital("TK003", "MS-G11", 1, 0, 0, true, false); // Maintenance switch BV130 G11
-            //    AddValve("TK003", "Q11", 1, 0, 0, false, false, false, true, false, -1, -1); // Open valve BV140 Q11
-            //    AddMotor("TK003", "G11", 5, 0, 0, false, false, -1, -1); // Pump BV130 G11 Run
-            //    AddPH("TK003", "OP6_Pressure", "PH_Vent");
-            //    AddPH("TK003", "OP6_Pressure", "PH_Blanketing");
-            //    AddPH("TK003", "OP6_Charge", "PH_Charge_Black_run");
-            //    AddPH("TK003", "OP6_Charge", "PH_Charge_Educt");
-            //    AddPH("TK003", "OP6_Charge", "PH_Charge_Catalyst", 1, false, 0, 300, 0, "L");
-            //    AddPH("TK003", "OP6_Charge", "PH_Charge_CIP");
-            //    AddPH("TK003", "OP6_Agitate", "PH_Agitate", 1, false, 0, 470, 0, "rpm");
+
+            //#region Unit TK003
+            //AddAnalog("TK003", "LC-B13", 2, 2, "%", 0, 0, 100); // Level radar sensor BV130 B13
+            //AddDigital("TK003", "LSA-B23", 2, 0, 0, false, false); // Overfill protection BV130 B23
+            //AddDigital("TK003", "MS-G11", 1, 0, 0, true, false); // Maintenance switch BV130 G11
+            //AddValve("TK003", "Q11", 1, 0, 0, false, false, false, true, false, -1, -1); // Open valve BV140 Q11
+            //AddMotor("TK003", "G11", 5, 0, 0, false, false, -1, -1); // Pump BV130 G11 Run
+            //AddPH("TK003", "OP6_Pressure", "PH_Vent");
+            //AddPH("TK003", "OP6_Pressure", "PH_Blanketing");
+            //AddPH("TK003", "OP6_Charge", "PH_Charge_Black_run");
+            //AddPH("TK003", "OP6_Charge", "PH_Charge_Educt");
+            //AddPH("TK003", "OP6_Charge", "PH_Charge_Catalyst", 1, false, 0, 300, 0, "L");
+            //AddPH("TK003", "OP6_Charge", "PH_Charge_CIP");
+            //AddPH("TK003", "OP6_Agitate", "PH_Agitate", 1, false, 0, 470, 0, "rpm");
             //AddPidControl("TK003", "TIC-1174", 1, "°C", 1);// PID control loop TIC 1174
             //AddPidControl("TK003", "TIC-1176", 1, "°C", 1);// PID control loop TIC 1176
             //AddPidControl("TK003", "PIC-1164", 1, "bar(g)", 1);// PID control loop PIC 1164
@@ -153,6 +154,7 @@ namespace EtuProcessGeneratorTiaV21
             AddPH("410", "OP1_Temperature", "PH_Vessels", 1, false, 10, 95, 1, "°C");
 
             AddPH("410", "OP1_Sample", "PH_Sample");
+
 #if false
             #region Unit hydrogenerator
 
